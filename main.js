@@ -360,6 +360,13 @@ function onBot({ models: botModel }) {
             return listener(message);
         };
         global.handleListen = loginApiData.listenMqtt(listenerCallback);
+          // DIAGNOSTIC: log every 60s to confirm process alive + MQTT config
+          setInterval(() => {
+              const mqttVal = global.Fca && global.Fca.Require && global.Fca.Require.FastConfig
+                  ? global.Fca.Require.FastConfig.RestartMQTT_Minutes
+                  : 'N/A';
+              console.log(`[HEARTBEAT] alive | RestartMQTT_Minutes=${mqttVal} | uptime=${Math.floor(process.uptime())}s`);
+          }, 60 * 1000);
         try {
             await checkBan(loginApiData);
         } catch (error) {
