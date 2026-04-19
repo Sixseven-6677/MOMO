@@ -4,7 +4,7 @@
     "description": "Hi To La vtuan",
     "main": "main.js",
     "scripts": {
-        "start": "node index",
+        "start": "bash start.sh",
         "login": "node login",
         "test": "node --trace-warnings --use_strict --async-stack-traces mirai"
     },
