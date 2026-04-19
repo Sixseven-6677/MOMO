@@ -1,0 +1,12 @@
+node_modules/
+appstate.json
+appstete.json
+config.json
+FastConfigFca.json
+*.sqlite
+Horizon_Database/
+.cache/
+.local/
+.agents/
+config.json.temp
+modules/commands/cache/
