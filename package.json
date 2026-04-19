@@ -12,6 +12,9 @@
         "type": "git",
         "url": "git+https://github.com/tandung1/Bot12.git"
     },
+    "engines": {
+        "node": ">=18.0.0"
+    },
     "author": "D-Jukie",
     "dependencies": {
         "@distube/ytdl-core": "^4.13.2",
