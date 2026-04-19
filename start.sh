@@ -1,6 +1,7 @@
 #!/bin/bash
 
-echo "Checking environment..."
+cd "$(dirname "$0")"
+echo "Working dir: $(pwd)"
 
 if [ ! -z "$APPSTATE" ]; then
   echo "$APPSTATE" > appstate.json
@@ -12,8 +13,11 @@ if [ ! -z "$CONFIG" ]; then
   echo "✓ config.json created"
 fi
 
-echo "Installing dependencies..."
-npm install --no-package-lock --silent 2>&1 | tail -5
+echo "Installing root dependencies..."
+npm install --no-package-lock --silent
+
+echo "Installing lib/fca-auto dependencies..."
+cd lib/fca-auto && npm install --no-package-lock --silent && cd ../..
 
 echo "Starting bot..."
 node index.js
