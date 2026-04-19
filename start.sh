@@ -1,16 +1,19 @@
 #!/bin/bash
 
-# Create appstate.json from environment variable if it exists
+echo "Checking environment..."
+
 if [ ! -z "$APPSTATE" ]; then
   echo "$APPSTATE" > appstate.json
-  echo "✓ appstate.json created from environment variable"
+  echo "✓ appstate.json created"
 fi
 
-# Create config.json from environment variable if it exists
 if [ ! -z "$CONFIG" ]; then
   echo "$CONFIG" > config.json
-  echo "✓ config.json created from environment variable"
+  echo "✓ config.json created"
 fi
 
-# Start the bot
+echo "Installing dependencies..."
+npm install --no-package-lock --silent 2>&1 | tail -5
+
+echo "Starting bot..."
 node index.js
