@@ -4,12 +4,10 @@ WORKDIR /app
 
 RUN apk add --no-cache bash python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev pixman-dev
 
+COPY package*.json ./
+
+RUN npm install --legacy-peer-deps
+
 COPY . .
-
-RUN npm install
-
-RUN cd lib/fca-auto && npm install
-
-RUN cd lib/Fca-Horizon-Remastered && npm install
 
 CMD ["bash", "start.sh"]
