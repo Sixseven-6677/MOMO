@@ -45,7 +45,7 @@ module.exports = function ({ models, api }) {
 			return true;
 		} catch (error) { 
 			try{
-				await this.createData(threadID, options);
+				await createData(threadID, options);
 
 			} catch (error) {
 				console.error(error);
