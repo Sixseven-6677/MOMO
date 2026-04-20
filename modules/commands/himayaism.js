@@ -46,7 +46,7 @@ module.exports.run = async function({ api, event, args }) {
   himayaIsmData.set(threadID, { name: nameToProtect });
 
   return api.sendMessage(
-    `🛡 تم تفعيل حماية الاسم\n📝 الاسم المحمي: ${nameToProtect}\nأي شخص يغيره سيرجع تلقائياً\n\nللإيقاف: حمايةاسم توقف`,
+    `— 𝖭𝖺𝗆𝖾 𝗉𝗋𝗈𝗍𝖾𝖼𝗍𝗂𝗈𝗇 𝗁𝖺𝗌 𝖻𝖾𝖾𝗇 𝖾𝗇𝖺𝖻𝗅𝖾𝖽 ꗇ\n\n𝖳𝗁𝖾 𝗇𝖺𝗆𝖾 𝗂𝗌 𝗉𝗋𝗈𝗍𝖾𝖼𝗍𝖾𝖽 ; 𝖺𝗇𝗒𝗈𝗇𝖾 𝗐𝗁𝗈 𝖼𝗁𝖺𝗇𝗀𝖾𝗌 𝗂𝗍 𝗐𝗂𝗅𝗅 𝗁𝖺𝗏𝖾 𝗍𝗈 𝗋𝖾𝗏𝖾𝗋𝗍 𝗍𝗈 𝗂𝗍\n\n𝖥𝗈𝗋 𝗌𝗍𝗈𝗉𝗉𝗂𝗇𝗀: حمايةاسم توقف`,
     threadID, messageID
   );
 };
