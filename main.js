@@ -127,11 +127,21 @@ global.getText = function (...args) {
     return text;
 }
 
+var appStateList = [];
 try {
-    var appStateFile = resolve(join(global.client.mainPath, global.config.APPSTATEPATH || "appstate.json"));
-    var appState = require(appStateFile);
-}
-catch { return logger.loader(global.getText("mirai", "notFoundPathAppstate"), "error") }
+    const primaryFile = resolve(join(global.client.mainPath, global.config.APPSTATEPATH || "appstate.json"));
+    const primaryState = JSON.parse(readFileSync(primaryFile, 'utf8'));
+    appStateList.push({ file: primaryFile, state: primaryState });
+} catch { return logger.loader(global.getText("mirai", "notFoundPathAppstate"), "error") }
+
+try {
+    const secondaryFile = resolve(join(global.client.mainPath, "appstate2.json"));
+    if (existsSync(secondaryFile)) {
+        const secondaryState = JSON.parse(readFileSync(secondaryFile, 'utf8'));
+        appStateList.push({ file: secondaryFile, state: secondaryState });
+        logger.loader("✅ تم تحميل الكوكيز الثاني (appstate2.json)");
+    }
+} catch (e) { logger.loader("⚠️ فشل تحميل appstate2.json: " + e.message, "warn"); }
 
 ////////////////////////////////////////////////////////////
 //========= Login account and start Listen Event =========//
@@ -206,13 +216,13 @@ function checkBan(checkban) {
         throw new Error(error);
     });
 }
-function onBot({ models: botModel }) {
+function onBot({ models: botModel }, appStateData) {
     const loginData = {};
-    loginData['appState'] = appState;
+    loginData['appState'] = appStateData.state;
     login(loginData, async(loginError, loginApiData) => {
         if (loginError) return logger(JSON.stringify(loginError), `ERROR`);
         loginApiData.setOptions(global.config.FCAOption)
-        writeFileSync(appStateFile, JSON.stringify(loginApiData.getAppState(), null, '\x09'))
+        writeFileSync(appStateData.file, JSON.stringify(loginApiData.getAppState(), null, '\x09'))
         global.client.api = loginApiData
         global.config.version = '1.2.14'
         global.client.timeStart = new Date().getTime(),
@@ -360,13 +370,6 @@ function onBot({ models: botModel }) {
             return listener(message);
         };
         global.handleListen = loginApiData.listenMqtt(listenerCallback);
-          // DIAGNOSTIC: log every 60s to confirm process alive + MQTT config
-          setInterval(() => {
-              const mqttVal = global.Fca && global.Fca.Require && global.Fca.Require.FastConfig
-                  ? global.Fca.Require.FastConfig.RestartMQTT_Minutes
-                  : 'N/A';
-              console.log(`[HEARTBEAT] alive | RestartMQTT_Minutes=${mqttVal} | uptime=${Math.floor(process.uptime())}s`);
-          }, 60 * 1000);
         try {
             await checkBan(loginApiData);
         } catch (error) {
@@ -431,8 +434,10 @@ function onBot({ models: botModel }) {
         authentication.sequelize = sequelize;
         const models = require('./includes/database/model')(authentication);    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         const botData = {};
-        botData.models = models
-        onBot(botData);
+        botData.models = models;
+        for (const appStateData of appStateList) {
+            onBot(botData, appStateData);
+        }
     } catch (error) { logger(global.getText('mirai', 'successConnectDatabase', JSON.stringify(error)), '[ DATABASE ]'); }
 })();
 process.on('unhandledRejection', (err, p) => {});
