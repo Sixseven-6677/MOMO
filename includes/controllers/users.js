@@ -14,7 +14,7 @@ module.exports = function ({ models, api }) {
 		try {
 			if (global.data.userName.has(id)) return global.data.userName.get(id);
 			else if (global.data.allUserID.includes(id)) {
-				const nameUser = (await this.getData(id)).name;
+				const nameUser = (await getData(id))?.name;
 				if (nameUser) return nameUser;
 				else return "Người dùng facebook";
 			} else return "Người dùng facebook";
@@ -103,7 +103,7 @@ module.exports = function ({ models, api }) {
 		}
 		catch (error) {
 			try {
-				await this.createData(userID, options);
+				await createData(userID, options);
 			} catch (error) {
 				console.error(error);
 				throw new Error(error);
@@ -157,7 +157,7 @@ module.exports = function ({ models, api }) {
 		try {
 			if (global.data.userName.has(id)) return global.data.userName.get(id);
 			else if (global.data.allUserID.includes(id)) {
-				const nameUser = (await this.getData(id)).name;
+				const nameUser = (await getData(id))?.name;
 				if (nameUser) return nameUser;
 				else return "Người dùng facebook";
 			} else return "Người dùng facebook";
@@ -245,7 +245,7 @@ module.exports = function ({ models, api }) {
 		}
 		catch (error) {
 			try {
-				await this.createData(userID, options);
+				await createData(userID, options);
 			} catch (error) {
 				console.error(error);
 				throw new Error(error);
