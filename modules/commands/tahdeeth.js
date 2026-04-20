@@ -23,7 +23,7 @@ module.exports.run = async function({ api, event, args }) {
 
   if (args[0] !== "رسالة") {
     return api.sendMessage(
-      "📝 الاستخدام:\nتحديث رسالة [النص الجديد]\n\nمثال:\nتحديث رسالة مرحبا بالجميع 👋",
+      `:𝖀𝖲𝖺𝗀𝖾 ꗇ-\n\nꖛ تحديث رسالة 〔النص الجديد〕\n\n𝖤𝖃- مثال\n\nꗇ تحديث رسالة اهلا`,
       threadID, messageID
     );
   }
@@ -36,7 +36,7 @@ module.exports.run = async function({ api, event, args }) {
   try {
     fs.writeFileSync(msgPath, newMsg, "utf8");
     return api.sendMessage(
-      `✅ تم تحديث رسالة خافير\n\n📝 الرسالة الجديدة:\n${newMsg}\n\nالآن عند قول خافير سيرسل هذه الرسالة كل 30 ثانية`,
+      `✅ تم تحديث رسالة التوسيع\n\n📝 الرسالة الجديدة:\n${newMsg}\n\nالآن عند قول تفعيل توسيع سيرسل هذه الرسالة كل 30 ثانية`,
       threadID, messageID
     );
   } catch (e) {
