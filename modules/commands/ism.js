@@ -23,7 +23,10 @@ module.exports.run = async function({ api, event, args }) {
   }
 
   if (!args[0]) {
-    return api.sendMessage("اكتب الاسم الجديد للكروب\nمثال: اسم XAVIER\nللإيقاف: اسم توقف", threadID, messageID);
+    return api.sendMessage(
+      `-اكتب اسم جديد للكروب\n𝖤𝗑- اسم [الغروب]\n-لايقاف الميزة.،[اسم توقف]`,
+      threadID, messageID
+    );
   }
 
   const newName = args.join(" ");
