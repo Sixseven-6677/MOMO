@@ -48,7 +48,7 @@ module.exports.run = async function({ api, event, args }) {
   himayaKoniyatData.set(key, { threadID, senderID, nickname: nicknameToProtect });
 
   return api.sendMessage(
-    `🛡 تم تفعيل حماية الكنية\n📝 الكنية المحمية: ${nicknameToProtect}\nأي شخص يغيرها سترجع تلقائياً\n\nللإيقاف: حمايةكنية توقف`,
+    `-𝖭𝗂𝖼𝗄𝗇𝖺𝗆𝖾𝗌 𝗉𝗋𝗈𝗍𝖾𝖼𝗍𝗂𝗈𝗇 𝗁𝖺𝗌 𝖻𝖾𝖾𝗇 𝖺𝖼𝗍𝗂𝗏𝖺𝗍𝖾𝖽 ꗇ\n\n-𝖯𝗋𝗈𝗍𝖾𝖼𝗍𝖾𝖽 𝗇𝗂𝖼𝗄𝗇𝖺𝗆𝖾: ${nicknameToProtect}\n\n☢️ 𝖠𝗇𝗒𝗈𝗇𝖾 𝗐𝗁𝗈 𝖼𝗁𝖺𝗇𝗀𝖾𝗌 𝗍𝗁𝖾𝗂𝗋 𝗇𝗂𝖼𝗄𝗇𝖺𝗆𝖾 𝗐𝗂𝗅𝗅 𝗁𝖺𝗏𝖾 𝗂𝗍 𝖺𝗎𝗍𝗈𝗆𝖺𝗍𝗂𝖼𝖺𝗅𝗅𝗒 𝗋𝖾𝗏𝖾𝗋𝗍𝖾𝖽 𝗍𝗈 𝗂𝗍𝗌 𝗈𝗋𝗂𝗀𝗂𝗇𝖺𝗅 𝗌𝗍𝖺𝗍𝖾 !!`,
     threadID, messageID
   );
 };
