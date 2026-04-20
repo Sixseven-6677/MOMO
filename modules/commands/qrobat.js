@@ -48,16 +48,14 @@ module.exports.run = async function({ api, event, args }) {
         name = info.threadName || `قروب ${tid}`;
       } catch (e) {}
       const status = disabled.includes(tid) ? "🔴 معطّل" : "🟢 مفعّل";
-      lines.push(`${i}. ${name}\n   ${status}`);
+      lines.push(`${i}- ${name}\n   ${status}`);
       i++;
     }
 
     return api.sendMessage(
-      `⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁\n` +
-      `➢︱ 𝑿𝑨𝑽𝑰𝑬𝑹 ᚔ 𝑮𝑹𝑶𝑼𝑷𝑺 ︱⚕\n` +
-      `⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁\n\n` +
+      `˖ִ 〆 ↯ 𝐕꯭𝐎𝐈𝖲𝖮𝐍 𒀱 𝛃𝐎𝐓⋆ ⏤ ꗇ\n\n` +
       lines.join("\n\n") +
-      `\n\n⧺ إجمالي القروبات: ${allThreads.length} ⧺`,
+      `\n\n卍 إجمالي القروبات: ${allThreads.length} ꗇ`,
       threadID, messageID
     );
   }
