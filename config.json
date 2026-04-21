@@ -18,9 +18,7 @@
     "ADMINBOT": [
         "61569087956154"
     ],
-    "NDH": [
-        ""
-    ],
+    "NDH": [],
     "DATABASE": {
         "sqlite": {
             "storage": "data.sqlite"
