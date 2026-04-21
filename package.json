@@ -70,6 +70,26 @@
         "tslib": "^2.6.0",
         "wikijs": "^6.4.1",
         "youtube-search-api": "^1.2.1",
-        "ytdl-core": "^4.11.5"
+        "ytdl-core": "^4.11.5",
+    "aes-js": "latest",
+    "ansi-to-html": "latest",
+    "better-sqlite3": "7.6.2",
+    "bluebird": "latest",
+    "crypto-js": "latest",
+    "deasync": "^0.1.28",
+    "duplexify": "^4.1.2",
+    "encode32": "latest",
+    "file-url": "^3.0.0",
+    "got": "^11.8.6",
+    "https-proxy-agent": "latest",
+    "is-hexcolor": "^1.0.0",
+    "lodash": "latest",
+    "mqtt": "^4.3.7",
+    "pretty-ms": "7.0.1",
+    "readable-stream": "^4.4.0",
+    "speakeasy": "latest",
+    "tough-cookie": "^4.1.2",
+    "uuid": "latest",
+    "ws": "^8.13.0"
     }
 }
