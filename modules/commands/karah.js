@@ -1,5 +1,3 @@
-const axios = require("axios");
-
 const footballQuestions = [
   { q: "ما هي جنسية اللاعب ليونيل ميسي؟", a: ["أرجنتيني", "ارجنتيني", "الأرجنتين"] },
   { q: "في أي نادٍ يلعب كريستيانو رونالدو حالياً؟", a: ["الاتحاد", "النادي الاتحاد", "al ittihad"] },
@@ -23,11 +21,11 @@ const footballQuestions = [
   { q: "من هو حارس مرمى ليفربول الحالي الشهير؟", a: ["أليسون", "اليسون", "alisson"] },
 ];
 
-const activeGames = new Map();
+const activeGames = global.karahGames || (global.karahGames = new Map());
 
 module.exports.config = {
   name: "كرة",
-  version: "1.0.0",
+  version: "1.1.0",
   hasPermssion: 0,
   credits: "XAVIER",
   description: "سؤال عن لاعب كرة قدم لديك 60 ثانية للإجابة",
@@ -45,30 +43,43 @@ module.exports.run = async function({ api, event }) {
 
   const question = footballQuestions[Math.floor(Math.random() * footballQuestions.length)];
 
-  await api.sendMessage(
+  api.sendMessage(
     `⚽ 𝗙𝗈𝗈𝗍𝖻𝖺𝗅𝗅 𝗤𝘂𝗶𝘇 ꗇ\n\n❓ ${question.q}\n\n⏱ عندك 60 ثانية للإجابة!`,
-    threadID, messageID
+    threadID,
+    (err, info) => {
+      if (err) return;
+      const botMsgID = info && info.messageID;
+
+      const timeout = setTimeout(async () => {
+        if (!activeGames.has(threadID)) return;
+        activeGames.delete(threadID);
+        try {
+          if (botMsgID && api.unsendMessage) {
+            await new Promise(res => api.unsendMessage(botMsgID, () => res()));
+          }
+        } catch (e) {}
+        try {
+          await api.sendMessage(
+            `⌛ اخطأت بالاجابة، حظ موفق المرة القادمة\n\n✅ الجواب الصحيح: ${question.a[0]}`,
+            threadID
+          );
+        } catch (e) {}
+      }, 60000);
+
+      activeGames.set(threadID, { question, timeout, botMsgID });
+    },
+    messageID
   );
-
-  const timeout = setTimeout(async () => {
-    if (!activeGames.has(threadID)) return;
-    activeGames.delete(threadID);
-    await api.sendMessage(
-      `⌛ 𝖳𝗂𝗆𝖾 𝗂𝗌 𝗎𝗉!\n\n✅ الجواب الصحيح: ${question.a[0]}`,
-      threadID
-    );
-  }, 60000);
-
-  activeGames.set(threadID, { question, timeout });
 };
 
 module.exports.handleEvent = async function({ api, event }) {
   if (!event.body || !activeGames.has(event.threadID)) return;
+  const { threadID, messageID, senderID } = event;
+  const botID = String(api.getCurrentUserID());
+  if (String(senderID) === botID) return;
 
-  const { threadID, messageID } = event;
   const game = activeGames.get(threadID);
   const answer = event.body.trim().toLowerCase();
-
   const isCorrect = game.question.a.some(a => answer.includes(a.toLowerCase()));
 
   if (isCorrect) {
@@ -77,8 +88,8 @@ module.exports.handleEvent = async function({ api, event }) {
 
     let name = "اللاعب";
     try {
-      const info = await api.getUserInfo(event.senderID);
-      name = info[event.senderID]?.name || name;
+      const info = await api.getUserInfo(senderID);
+      name = info[senderID]?.name || name;
     } catch (e) {}
 
     return api.sendMessage(
