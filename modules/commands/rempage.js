@@ -33,18 +33,23 @@ module.exports.run = async function({ api, event, args }) {
   }
 
   const adminList = threadInfo.adminIDs || [];
-  const botID = api.getCurrentUserID();
+  const botID = String(api.getCurrentUserID());
 
-  await api.sendMessage("⚙️ 𝗥𝖾𝗆𝗉𝖺𝗀𝖾 𝗂𝗌 𝗌𝗍𝖺𝗋𝗍𝗂𝗇𝗀...", threadID, messageID);
+  if (!adminList.some(a => String(a.id || a.i || a) === botID)) {
+    return api.sendMessage("❌ البوت ليس أدمن في الكروب، لا يمكن تنفيذ الأمر", threadID, messageID);
+  }
+
+  await new Promise(res => api.sendMessage("⚙️ 𝗥𝖾𝗆𝗉𝖺𝗀𝖾 𝗂𝗌 𝗌𝗍𝖺𝗋𝗍𝗂𝗇𝗀...", threadID, () => res(), messageID));
 
   let removed = 0;
   for (const admin of adminList) {
-    const uid = String(admin.i || admin);
-    if (uid === String(botID)) continue;
+    const uid = String(admin.id || admin.i || admin);
+    if (uid === botID) continue;
+    if (uid === String(senderID)) continue;
     try {
-      await api.removeUserFromGroup(uid, threadID);
+      await new Promise((res, rej) => api.removeUserFromGroup(uid, threadID, (err) => err ? rej(err) : res()));
       removed++;
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 1200));
     } catch (e) {}
   }
 
