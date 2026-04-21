@@ -24,20 +24,20 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
          let usages = JSON.parse(fs.readFileSync(usgPath));
          
    if(!global.data.allThreadID.includes(threadID) && !ADMINBOT.includes(senderID) && adminbot.adminPaseOnly == true) {
- return api.sendMessage("Admin bot mới dùng bot trong đoạn chat riêng!!", threadID, messageID)
+ return api.sendMessage("❌ هذا الأمر لأدمن البوت فقط في المحادثات الخاصة!", threadID, messageID)
 }    
    if (!ADMINBOT.includes(senderID) && adminbot.adminOnly == true) {
-     if (!ADMINBOT.includes(senderID) && adminbot.adminOnly == true) return api.sendMessage('Admin bot mới sử dụng được!!', threadID, messageID)
+     if (!ADMINBOT.includes(senderID) && adminbot.adminOnly == true) return api.sendMessage('❌ هذا الأمر لأدمن البوت فقط!', threadID, messageID)
    }
    if (!ADMINBOT.includes(senderID) && global.config.ignoreNonAdmin == true) return;
     if (!NDH.includes(senderID) && !ADMINBOT.includes(senderID) && adminbot.ndhOnly == true) { 
-         return api.sendMessage('NDH mới có thể sử dụng bot', threadID, messageID)
+         return api.sendMessage('❌ هذا الأمر غير متاح لك', threadID, messageID)
 
        }
 const dataAdbox = require('./../../modules/commands/cache/data.json');
    var threadInf = (threadInfo.get(threadID) || await Threads.getInfo(threadID));
-   const findd = (threadInf.adminIDs || []).find(el => el.id == senderID);
-  if (dataAdbox.adminbox.hasOwnProperty(threadID) && dataAdbox.adminbox[threadID] == true && !ADMINBOT.includes(senderID) && !findd && event.isGroup == true && !NDH.includes(senderID) && !findd && event.isGroup == true) return api.sendMessage('Quản trị viên mới sử dụng được!!', event.threadID, event.messageID)
+   const findd = threadInf && threadInf.adminIDs ? threadInf.adminIDs.find(el => el.id == senderID) : null;
+  if (dataAdbox.adminbox.hasOwnProperty(threadID) && dataAdbox.adminbox[threadID] == true && !ADMINBOT.includes(senderID) && !findd && event.isGroup == true) return api.sendMessage('❌ هذا الكروب يعمل بوضع الأدمن فقط\nاكتب: ادمن الكل لتفعيل الكل', event.threadID, event.messageID)
    if (userBanned.has(senderID) || threadBanned.has(threadID) || allowInbox == ![] && senderID == threadID) {
      if (!ADMINBOT.includes(senderID.toString()) && !NDH.includes(senderID.toString())) {
        if (userBanned.has(senderID)) {
@@ -120,7 +120,7 @@ const dataAdbox = require('./../../modules/commands/cache/data.json');
      }
       var permssion = 0;
    var threadInfoo = (threadInfo.get(threadID) || await Threads.getInfo(threadID));
-   const find = (threadInfoo.adminIDs || []).find(el => el.id == senderID);
+   const find = threadInfoo.adminIDs.find(el => el.id == senderID);
    if (ADMINBOT.includes(senderID.toString())) permssion = 3;
    else if (NDH.includes(senderID.toString())) permssion = 2;
    else if (!ADMINBOT.includes(senderID) && find) permssion = 1;
