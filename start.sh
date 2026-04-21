@@ -1,9 +1,24 @@
 #!/bin/bash
-  cd "$(dirname "$0")"
-  [ ! -z "$APPSTATE" ] && echo "$APPSTATE" > appstate.json && echo "✓ appstate.json created"
-  [ ! -z "$CONFIG" ] && echo "$CONFIG" > config.json && echo "✓ config.json created"
-  mkdir -p modules/commands/cache
-  [ ! -f modules/commands/cache/data.json ] && echo '{"adminbox":{}}' > modules/commands/cache/data.json && echo "✓ cache/data.json created"
-  echo "Starting bot..."
-  node index.js
-  
+
+node -e "
+const fs = require('fs');
+
+if (process.env.APPSTATE) {
+  fs.writeFileSync('appstate.json', process.env.APPSTATE, 'utf8');
+  console.log('✓ appstate.json created');
+}
+
+if (process.env.CONFIG) {
+  fs.writeFileSync('config.json', process.env.CONFIG, 'utf8');
+  console.log('✓ config.json created');
+}
+
+const dataPath = 'modules/commands/cache/data.json';
+if (!fs.existsSync(dataPath)) {
+  fs.writeFileSync(dataPath, JSON.stringify({adminbox:{},adminonly:{}}), 'utf8');
+  console.log('✓ cache/data.json created');
+}
+"
+
+echo "Starting bot..."
+node index.js

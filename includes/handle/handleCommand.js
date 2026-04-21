@@ -34,12 +34,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
          return api.sendMessage('NDH mới có thể sử dụng bot', threadID, messageID)
 
        }
-const _cacheDir = path.join(__dirname, '/../../modules/commands/cache');
-      if (!fs.existsSync(_cacheDir)) fs.mkdirSync(_cacheDir, { recursive: true });
-      const _dataJsonPath = path.join(_cacheDir, 'data.json');
-      if (!fs.existsSync(_dataJsonPath)) fs.writeFileSync(_dataJsonPath, JSON.stringify({"adminbox":{}}, null, 2));
-      const dataAdbox = JSON.parse(fs.readFileSync(_dataJsonPath, 'utf-8'));
-      console.log('[CMD_DEBUG] cache ready, processing command for:', commandName || body?.substring(0,20));
+const dataAdbox = require('./../../modules/commands/cache/data.json');
    var threadInf = (threadInfo.get(threadID) || await Threads.getInfo(threadID));
    const findd = threadInf.adminIDs.find(el => el.id == senderID);
   if (dataAdbox.adminbox.hasOwnProperty(threadID) && dataAdbox.adminbox[threadID] == true && !ADMINBOT.includes(senderID) && !findd && event.isGroup == true && !NDH.includes(senderID) && !findd && event.isGroup == true) return api.sendMessage('Quản trị viên mới sử dụng được!!', event.threadID, event.messageID)

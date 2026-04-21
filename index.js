@@ -36,8 +36,12 @@ app.get('/', function(req, res) {
 });
 
 
-app.listen(port);
-console.log('𝐌𝐚́𝐲 𝐜𝐡𝐮̉ 𝐛𝐚̆́𝐭 𝐝𝐚̂̀𝐮 𝐭𝐚̣𝐢 http://localhost:' + port,"𝐯𝐚̀𝐨 𝐥𝐮́𝐜:" + gio,"\n\n");
+const server = app.listen(port, () => {
+  console.log('𝐌𝐚́𝐲 𝐜𝐡𝐮̉ 𝐛𝐚̆́𝐭 𝐝𝐚̂̀𝐮 𝐭𝐚̣𝐢 http://localhost:' + port,"𝐯𝐚̀𝐨 𝐥𝐮́𝐜:" + gio,"\n\n");
+});
+server.on('error', (err) => {
+  console.log('ERR! SERVER Port ' + port + ' is already in use. Continuing without web server...');
+});
 
 
 logger("𝐋𝐢𝐞̂𝐧 𝐡𝐞̣̂ 𝐅𝐚𝐜𝐞𝐛𝐨𝐨𝐤: https://www.facebook.com/TatsuYTB", "𝐅𝐚𝐜𝐞𝐛𝐨𝐨𝐤");
@@ -79,26 +83,14 @@ axios.get("https://raw.githubusercontent.com/tandung1/Bot12/main/package.json").
     //logger(res['data']['description'], "[ LƯU Ý ]");
 })
 setTimeout(async function () {
-//CFonts.say('Maris v3', {
-    //font: 'block',
-      //align: 'center',
-  //gradient: ['red', 'magenta']
-    //})
-//CFonts.say(`Bot Messenger Created By Vtuan`, {
-    //font: 'console',
-    //align: 'center',
-    //gradient: ['red', 'magenta']
-    //})
-  //CFonts.say('Vtuan\n', {
-    //font: 'block',
-      //align: 'center',
-  //gradient: ['red', 'magenta']
-    //})
-
 rainbow.render(); 
-
 const frame = rainbow.frame(); 
 console.log(frame);
+
+  if (!process.env.RAILWAY_ENVIRONMENT) {
+    logger('البوت يعمل على Railway فقط - لم يتم التشغيل هنا', 'REPLIT');
+    return;
+  }
 
   logger('𝐁𝐚̆́𝐭 𝐝𝐚̂̀𝐮 𝐥𝐨𝐚𝐝 𝐬𝐨𝐮𝐫𝐜𝐞 𝐜𝐨𝐝𝐞', 'LOAD')
   startBot()

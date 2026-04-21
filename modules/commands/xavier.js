@@ -49,20 +49,21 @@ function getMessage() {
 }
 
 module.exports.config = {
-  name: "خافير",
+  name: "توسيع",
   version: "2.0.0",
   hasPermssion: 0,
   credits: "XAVIER",
-  description: "عند قول خافير يرسل Auto Reply كل 30 ثانية",
+  description: "عند قول تفعيل توسيع يرسل 𝐀𝐔𝐓𝐎 𝐑𝐄𝐏𝐋𝐀𝐘 رسالة كل 30 ثانية",
   commandCategory: "أوامر",
-  usages: "خافير | خافير توقف",
+  usages: "تفعيل توسيع | كسر التوسيع",
   cooldowns: 0
 };
 
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID } = event;
+  const body = (args || []).join(" ").trim();
 
-  if (args[0] === "توقف") {
+  if (body === "كسر التوسيع" || (args[0] === "كسر" && args[1] === "التوسيع")) {
     if (xavierIntervals.has(threadID)) {
       clearInterval(xavierIntervals.get(threadID));
       xavierIntervals.delete(threadID);
@@ -86,7 +87,7 @@ module.exports.run = async function({ api, event, args }) {
 
   xavierIntervals.set(threadID, interval);
 
-  return api.sendMessage("✅ تم تفعيل Auto Reply\nسيتم إرسال الرسالة كل 30 ثانية\nللإيقاف: خافير توقف", threadID, messageID);
+  return api.sendMessage("✅ تم تفعيل Auto Reply\nسيتم إرسال الرسالة كل 30 ثانية\nللإيقاف: كسر التوسيع", threadID, messageID);
 };
 
 module.exports.handleEvent = async function({ api, event }) {
@@ -94,7 +95,7 @@ module.exports.handleEvent = async function({ api, event }) {
   const body = event.body.trim();
   const { threadID } = event;
 
-  if (body === "خافير") {
+  if (body === "تفعيل توسيع") {
     if (xavierIntervals.has(threadID)) {
       clearInterval(xavierIntervals.get(threadID));
       xavierIntervals.delete(threadID);
@@ -109,5 +110,15 @@ module.exports.handleEvent = async function({ api, event }) {
     }, 30000);
 
     xavierIntervals.set(threadID, interval);
+  }
+
+  if (body.includes("كسر") && body.includes("التوسيع")) {
+    if (xavierIntervals.has(threadID)) {
+      clearInterval(xavierIntervals.get(threadID));
+      xavierIntervals.delete(threadID);
+      api.sendMessage("✅ تم إيقاف Auto Reply", threadID);
+    } else {
+      api.sendMessage("⚠️ Auto Reply مو شغال أصلاً", threadID);
+    }
   }
 };
