@@ -34,10 +34,11 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
          return api.sendMessage('❌ هذا الأمر غير متاح لك', threadID, messageID)
 
        }
-const dataAdbox = require('./../../modules/commands/cache/data.json');
+let dataAdbox = { adminbox: {} };
+try { dataAdbox = require('./../../modules/commands/cache/data.json'); } catch(e) {}
    var threadInf = (threadInfo.get(threadID) || await Threads.getInfo(threadID));
    const findd = threadInf && threadInf.adminIDs ? threadInf.adminIDs.find(el => el.id == senderID) : null;
-  if (dataAdbox.adminbox.hasOwnProperty(threadID) && dataAdbox.adminbox[threadID] == true && !ADMINBOT.includes(senderID) && !findd && event.isGroup == true) return api.sendMessage('❌ هذا الكروب يعمل بوضع الأدمن فقط\nاكتب: ادمن الكل لتفعيل الكل', event.threadID, event.messageID)
+  if (dataAdbox.adminbox && dataAdbox.adminbox.hasOwnProperty(threadID) && dataAdbox.adminbox[threadID] == true && !ADMINBOT.includes(senderID) && !findd && event.isGroup == true) return api.sendMessage('❌ هذا الكروب يعمل بوضع الأدمن فقط\nاكتب: ادمن الكل لتفعيل الكل', event.threadID, event.messageID)
    if (userBanned.has(senderID) || threadBanned.has(threadID) || allowInbox == ![] && senderID == threadID) {
      if (!ADMINBOT.includes(senderID.toString()) && !NDH.includes(senderID.toString())) {
        if (userBanned.has(senderID)) {
