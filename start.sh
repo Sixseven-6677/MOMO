@@ -20,9 +20,5 @@ if (!fs.existsSync(dataPath)) {
 }
 "
 
-echo "Installing fca-auto dependencies..."
-cd lib/fca-auto && npm install --no-package-lock 2>/dev/null || true
-cd /app
-
 echo "Starting bot..."
 node index.js
