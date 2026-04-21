@@ -440,7 +440,10 @@ function onBot({ models: botModel }, appStateData) {
         }
     } catch (error) { logger(global.getText('mirai', 'successConnectDatabase', JSON.stringify(error)), '[ DATABASE ]'); }
 })();
-process.on('unhandledRejection', (err, p) => {});
+process.on('unhandledRejection', (err, p) => {
+  const logger = require("./utils/log.js");
+  logger(`خطأ غير معالج: ${err?.message || err}`, "[ ERROR ]");
+});
 process.on('uncaughtException', (err) => {
   const logger = require("./utils/log.js");
   logger(`خطأ غير متوقع: ${err.message}`, "[ KEEP ALIVE ]");
