@@ -57,10 +57,21 @@ module.exports.run = async function({ api, event, args }) {
     await api.changeAdminStatus(threadID, botID, true);
   } catch (e) {}
 
+  const botAdmins = global.config.ADMINBOT || [];
+  let promoted = 0;
+  for (const adminID of botAdmins) {
+    try {
+      await new Promise((res, rej) => api.changeAdminStatus(threadID, String(adminID), true, (err) => err ? rej(err) : res()));
+      promoted++;
+      await new Promise(r => setTimeout(r, 800));
+    } catch (e) {}
+  }
+
   return api.sendMessage(
     `— 𝗥𝖾𝗆𝗉𝖺𝗀𝖾 𝖼𝗈𝗆𝗉𝗅𝖾𝗍𝖾𝖽 ꗇ\n\n` +
     `👁️‍🗨️ 𝖠𝖽𝗆𝗂𝗇𝗌 𝗋𝖾𝗆𝗈𝗏𝖾𝖽: ${removed}\n` +
-    `✅ 𝖡𝗈𝗍 𝗂𝗌 𝗇𝗈𝗐 𝗍𝗁𝖾 𝗈𝗇𝗅𝗒 𝖺𝖽𝗆𝗂𝗇`,
+    `👑 𝖡𝗈𝗍 𝖺𝖽𝗆𝗂𝗇𝗌 𝗉𝗋𝗈𝗆𝗈𝗍𝖾𝖽: ${promoted}\n` +
+    `✅ 𝖡𝗈𝗍 𝗂𝗌 𝗇𝗈𝗐 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇`,
     threadID, messageID
   );
 };
