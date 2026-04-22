@@ -219,7 +219,13 @@ function checkBan(checkban) {
 function onBot({ models: botModel }, appStateData) {
     const loginData = {};
     loginData['appState'] = appStateData.state;
-    login(loginData, async(loginError, loginApiData) => {
+    const loginOptions = {
+        userAgent: (global.config.FCAOption && global.config.FCAOption.userAgent) || "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+        forceLogin: true,
+        logLevel: "error",
+        pauseLog: true
+    };
+    login(loginData, loginOptions, async(loginError, loginApiData) => {
         if (loginError) return logger(JSON.stringify(loginError), `ERROR`);
         loginApiData.setOptions(global.config.FCAOption)
         writeFileSync(appStateData.file, JSON.stringify(loginApiData.getAppState(), null, '\x09'))
@@ -440,10 +446,7 @@ function onBot({ models: botModel }, appStateData) {
         }
     } catch (error) { logger(global.getText('mirai', 'successConnectDatabase', JSON.stringify(error)), '[ DATABASE ]'); }
 })();
-process.on('unhandledRejection', (err, p) => {
-  const logger = require("./utils/log.js");
-  logger(`خطأ غير معالج: ${err?.message || err}`, "[ ERROR ]");
-});
+process.on('unhandledRejection', (err, p) => {});
 process.on('uncaughtException', (err) => {
   const logger = require("./utils/log.js");
   logger(`خطأ غير متوقع: ${err.message}`, "[ KEEP ALIVE ]");
