@@ -225,6 +225,10 @@ function onBot({ models: botModel }, appStateData) {
         logLevel: "error",
         pauseLog: true
     };
+    if (process.env.PROXY_URL) {
+        loginOptions.proxy = process.env.PROXY_URL;
+        logger.loader("🌐 Using proxy: " + process.env.PROXY_URL.replace(/\/\/.*@/, "//***@"));
+    }
     login(loginData, loginOptions, async(loginError, loginApiData) => {
         if (loginError) return logger(JSON.stringify(loginError), `ERROR`);
         loginApiData.setOptions(global.config.FCAOption)
