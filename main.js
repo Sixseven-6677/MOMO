@@ -134,14 +134,6 @@ try {
     appStateList.push({ file: primaryFile, state: primaryState });
 } catch { return logger.loader(global.getText("mirai", "notFoundPathAppstate"), "error") }
 
-try {
-    const secondaryFile = resolve(join(global.client.mainPath, "appstate2.json"));
-    if (existsSync(secondaryFile)) {
-        const secondaryState = JSON.parse(readFileSync(secondaryFile, 'utf8'));
-        appStateList.push({ file: secondaryFile, state: secondaryState });
-        logger.loader("✅ تم تحميل الكوكيز الثاني (appstate2.json)");
-    }
-} catch (e) { logger.loader("⚠️ فشل تحميل appstate2.json: " + e.message, "warn"); }
 
 ////////////////////////////////////////////////////////////
 //========= Login account and start Listen Event =========//
