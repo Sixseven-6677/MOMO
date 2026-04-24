@@ -54,29 +54,52 @@ console.log(frame);
 logger("𝕐𝕠𝕦𝕣 𝕧𝕖𝕣𝕤𝕚𝕠𝕟 𝕚𝕤 𝕥𝕙𝕖 𝕝𝕒𝕥𝕖𝕤𝕥!", "UPDATE");
 
 
-function startBot(message) {
-    (message) ? logger(message, "BOT ĐANG KHỞI ĐỘNG") : "";
+const fs = require("fs");
+
+function findAppStateFiles() {
+    try {
+        const all = fs.readdirSync(__dirname);
+        const matched = all.filter(f => /^appstate.*\.json$/i.test(f) && fs.statSync(path.join(__dirname, f)).isFile());
+        if (matched.length === 0) return ["appstate.json"];
+        matched.sort();
+        return matched;
+    } catch (e) {
+        return ["appstate.json"];
+    }
+}
+
+function startBotForFile(appStateFile, message) {
+    (message) ? logger(`[${appStateFile}] ${message}`, "BOT ĐANG KHỞI ĐỘNG") : "";
 
     const child = spawn("node", ["--trace-warnings", "--async-stack-traces", "main.js"], {
         cwd: __dirname,
         stdio: "inherit",
-        shell: true
+        shell: true,
+        env: Object.assign({}, process.env, { APPSTATE_FILE: appStateFile })
     });
 
-   child.on("close",async (codeExit) => {
-      var x = 'codeExit'.replace('codeExit',codeExit);
-        if (codeExit == 1) return startBot("BOT RESTARTING!!!");
-         else if (x.indexOf(2) == 0) {
-           await new Promise(resolve => setTimeout(resolve, parseInt(x.replace(2,'')) * 1000));
-                 startBot("Bot has been activated please wait a moment!!!");
-       }
-         else return; 
+    child.on("close", async (codeExit) => {
+        var x = 'codeExit'.replace('codeExit', codeExit);
+        if (codeExit == 1) return startBotForFile(appStateFile, "BOT RESTARTING!!!");
+        else if (x.indexOf(2) == 0) {
+            await new Promise(resolve => setTimeout(resolve, parseInt(x.replace(2, '')) * 1000));
+            startBotForFile(appStateFile, "Bot has been activated please wait a moment!!!");
+        }
+        else return;
     });
 
     child.on("error", function (error) {
-        logger("An error occurred: " + JSON.stringify(error), "[ Starting ]");
+        logger(`[${appStateFile}] An error occurred: ` + JSON.stringify(error), "[ Starting ]");
     });
-};
+}
+
+function startBot(message) {
+    const files = findAppStateFiles();
+    logger(`عدد الحسابات المكتشفة: ${files.length} (${files.join(", ")})`, "[ MULTI-ACCOUNT ]");
+    for (const file of files) {
+        startBotForFile(file, message);
+    }
+}
 axios.get("https://raw.githubusercontent.com/tandung1/Bot12/main/package.json").then((res) => {
     //logger(res['data']['name'], "[ TÊN PR0JECT ]");
     //logger("Version: " + res['data']['version'], "[ PHIÊN BẢN ]");

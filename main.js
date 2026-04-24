@@ -129,9 +129,12 @@ global.getText = function (...args) {
 
 var appStateList = [];
 try {
-    const primaryFile = resolve(join(global.client.mainPath, global.config.APPSTATEPATH || "appstate.json"));
+    const envFile = process.env.APPSTATE_FILE;
+    const fileName = envFile && envFile.trim().length > 0 ? envFile.trim() : (global.config.APPSTATEPATH || "appstate.json");
+    const primaryFile = resolve(join(global.client.mainPath, fileName));
     const primaryState = JSON.parse(readFileSync(primaryFile, 'utf8'));
     appStateList.push({ file: primaryFile, state: primaryState });
+    logger.loader(`[ ACCOUNT ] استخدام ملف الجلسة: ${fileName}`);
 } catch { return logger.loader(global.getText("mirai", "notFoundPathAppstate"), "error") }
 
 
