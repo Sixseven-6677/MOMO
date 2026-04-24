@@ -5,63 +5,97 @@ module.exports.config = {
   version: "3.0.0",
   hasPermssion: 0,
   credits: "XAVIER",
-  description: "تغيير اسم الكروب مع الحماية من التغيير",
+  description: "تغيير اسم الكروب مع إمكانية تحديد قروب بالرقم",
   commandCategory: "أوامر",
-  usages: "اسم [الاسم] | اسم توقف | اسم حماية | اسم حماية لا",
+  usages: "اسم [الاسم] | اسم [الاسم]- قروب [رقم] | اسم توقف",
   cooldowns: 0
 };
 
 module.exports.run = async function({ api, event, args }) {
-  const { threadID, messageID } = event;
+  const { threadID, messageID, senderID } = event;
+  const adminIDs = global.config.ADMINBOT || [];
+  const isAdmin = adminIDs.includes(String(senderID));
+
+  if (args[0] === "توقف") {
+    if (ismData.has(threadID)) {
+      ismData.delete(threadID);
+      return api.sendMessage("✅ تم إيقاف حماية اسم الكروب", threadID, messageID);
+    }
+    return api.sendMessage("الحماية مو شغالة أصلاً", threadID, messageID);
+  }
 
   if (!args[0]) {
     return api.sendMessage(
-      `𝗡𝖺𝗆𝖾 𝖢𝗈𝗆𝗆𝖺𝗇𝖽𝗌:\n` +
-      `- اسم [الاسم] ← تغيير الاسم مع تفعيل الحماية\n` +
-      `- اسم حماية ← تفعيل الحماية للاسم الحالي\n` +
-      `- اسم حماية لا ← إيقاف الحماية فقط\n` +
-      `- اسم توقف ← إيقاف الحماية`,
+      "📝 طريقة الاستخدام:\n" +
+      "• اسم مرحبا ← يغير اسم هذا الكروب\n" +
+      "• اسم مرحبا- قروب 1 ← يغير اسم القروب رقم 1\n" +
+      "• اسم توقف ← يوقف حماية الاسم",
       threadID, messageID
     );
   }
 
-  if (args[0] === "توقف" || (args[0] === "حماية" && args[1] === "لا")) {
-    if (ismData.has(threadID)) {
-      ismData.delete(threadID);
-      return api.sendMessage("— 𝖭𝖺𝗆𝖾 𝗉𝗋𝗈𝗍𝖾𝖼𝗍𝗂𝗈𝗇 𝗁𝖺𝗌 𝖻𝖾𝖾𝗇 𝖽𝗂𝗌𝖺𝖻𝗅𝖾𝖽 ꗇ", threadID, messageID);
-    }
-    return api.sendMessage("⚠️ حماية الاسم مو شغالة أصلاً", threadID, messageID);
-  }
+  const fullText = args.join(" ");
 
-  if (args[0] === "حماية") {
-    let currentName;
+  const match = fullText.match(/^(.*?)-\s*قروب\s+(\d+)$/);
+
+  if (match) {
+    if (!isAdmin) {
+      return api.sendMessage("❌ تغيير اسم قروب آخر لأدمن البوت فقط", threadID, messageID);
+    }
+
+    const newName = match[1].trim();
+    const groupNum = parseInt(match[2]);
+
+    if (!newName) {
+      return api.sendMessage("❌ اكتب الاسم قبل رقم القروب", threadID, messageID);
+    }
+
+    const allThreads = [...(global.data.allThreadID || [])];
+
+    if (isNaN(groupNum) || groupNum < 1 || groupNum > allThreads.length) {
+      let lines = [];
+      let i = 1;
+      for (const tid of allThreads) {
+        let name = tid;
+        try {
+          const info = global.data.threadInfo?.get(tid) || await api.getThreadInfo(tid);
+          name = info.threadName || `قروب ${tid}`;
+        } catch (e) {}
+        lines.push(`${i}. ${name}`);
+        i++;
+      }
+      return api.sendMessage(
+        `📋 قائمة القروبات:\n\n${lines.join("\n")}\n\nمثال: اسم مرحبا- قروب 2`,
+        threadID, messageID
+      );
+    }
+
+    const targetThreadID = allThreads[groupNum - 1];
+
     try {
-      const threadInfo = await api.getThreadInfo(threadID);
-      currentName = threadInfo.threadName || null;
-    } catch (e) {}
-
-    if (!currentName) {
-      return api.sendMessage("❌ ما في اسم للكروب حالياً", threadID, messageID);
+      await api.setTitle(newName, targetThreadID);
+      ismData.set(targetThreadID, { name: newName });
+      return api.sendMessage(
+        `✅ تم تغيير اسم القروب رقم ${groupNum} إلى: ${newName}\n🛡 الحماية شغالة على ذلك الكروب`,
+        threadID, messageID
+      );
+    } catch (e) {
+      return api.sendMessage(`❌ فشل تغيير اسم القروب رقم ${groupNum}`, threadID, messageID);
     }
 
-    ismData.set(threadID, { name: currentName });
-    return api.sendMessage(
-      `— 𝖭𝖺𝗆𝖾 𝗉𝗋𝗈𝗍𝖾𝖼𝗍𝗂𝗈𝗇 𝗁𝖺𝗌 𝖻𝖾𝖾𝗇 𝖾𝗇𝖺𝖻𝗅𝖾𝖽 ꗇ\n\n𝖯𝗋𝗈𝗍𝖾𝖼𝗍𝖾𝖽 𝗇𝖺𝗆𝖾: ${currentName}\n\n𝖥𝗈𝗋 𝗌𝗍𝗈𝗉𝗉𝗂𝗇𝗀: اسم توقف`,
-      threadID, messageID
-    );
-  }
+  } else {
+    const newName = fullText;
 
-  const newName = args.join(" ");
-
-  try {
-    await api.setTitle(newName, threadID);
-    ismData.set(threadID, { name: newName });
-    return api.sendMessage(
-      `— 𝖭𝖺𝗆𝖾 𝗁𝖺𝗌 𝖻𝖾𝖾𝗇 𝖼𝗁𝖺𝗇𝗀𝖾𝖽 ꗇ\n\n𝖭𝖾𝗐 𝗇𝖺𝗆𝖾: ${newName}\n🛡 𝖯𝗋𝗈𝗍𝖾𝖼𝗍𝗂𝗈𝗇 𝗂𝗌 𝗈𝗇\n\n𝖥𝗈𝗋 𝗌𝗍𝗈𝗉𝗉𝗂𝗇𝗀: اسم توقف`,
-      threadID, messageID
-    );
-  } catch (e) {
-    return api.sendMessage("❌ فشل تغيير اسم الكروب", threadID, messageID);
+    try {
+      await api.setTitle(newName, threadID);
+      ismData.set(threadID, { name: newName });
+      return api.sendMessage(
+        `✅ تم تغيير اسم الكروب إلى: ${newName}\n🛡 الحماية شغالة، إذا أحد غيّره سيرجع تلقائياً\nللإيقاف: اسم توقف`,
+        threadID, messageID
+      );
+    } catch (e) {
+      return api.sendMessage("❌ فشل تغيير اسم الكروب", threadID, messageID);
+    }
   }
 };
 
