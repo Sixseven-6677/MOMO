@@ -84,5 +84,7 @@
         "APIKEY": ""
     },
     "adminOnly": false,
-    "ignoreNonAdmin": false
+    "ignoreNonAdmin": false,
+    "totalSilence": false,
+    "xavierInterval": 30000
 }

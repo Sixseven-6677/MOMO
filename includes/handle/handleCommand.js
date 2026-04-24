@@ -30,6 +30,12 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
      if (!ADMINBOT.includes(senderID) && adminbot.adminOnly == true) return api.sendMessage('❌ هذا الأمر لأدمن البوت فقط!', threadID, messageID)
    }
    if (!ADMINBOT.includes(senderID) && global.config.ignoreNonAdmin == true) return;
+   if (global.config.totalSilence == true) {
+     if (!ADMINBOT.includes(senderID)) return;
+     const _matchPref = body.match(prefixRegex);
+     const silentBody = body.slice((_matchPref ? _matchPref[0] : "").length).trim();
+     if (!/^تجاهل\s+كلي\s+توقف\s*$/.test(silentBody)) return;
+   }
     if (!NDH.includes(senderID) && !ADMINBOT.includes(senderID) && adminbot.ndhOnly == true) { 
          return api.sendMessage('❌ هذا الأمر غير متاح لك', threadID, messageID)
 

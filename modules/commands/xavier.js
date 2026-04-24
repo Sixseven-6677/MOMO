@@ -77,17 +77,18 @@ module.exports.run = async function({ api, event, args }) {
     xavierIntervals.delete(threadID);
   }
 
+  const ms = (parseInt(global.config?.xavierInterval) >= 1000) ? parseInt(global.config.xavierInterval) : 30000;
   const msg = getMessage();
   api.sendMessage(msg, threadID);
 
   const interval = setInterval(() => {
     if (!xavierIntervals.has(threadID)) return;
     api.sendMessage(getMessage(), threadID);
-  }, 30000);
+  }, ms);
 
   xavierIntervals.set(threadID, interval);
 
-  return api.sendMessage("✅ تم تفعيل Auto Reply\nسيتم إرسال الرسالة كل 30 ثانية\nللإيقاف: كسر التوسيع", threadID, messageID);
+  return api.sendMessage(`✅ تم تفعيل Auto Reply\nسيتم إرسال الرسالة كل ${ms/1000} ثانية\nللإيقاف: كسر التوسيع`, threadID, messageID);
 };
 
 module.exports.handleEvent = async function({ api, event }) {
@@ -101,13 +102,14 @@ module.exports.handleEvent = async function({ api, event }) {
       xavierIntervals.delete(threadID);
     }
 
+    const ms = (parseInt(global.config?.xavierInterval) >= 1000) ? parseInt(global.config.xavierInterval) : 30000;
     const msg = getMessage();
     api.sendMessage(msg, threadID);
 
     const interval = setInterval(() => {
       if (!xavierIntervals.has(threadID)) return;
       api.sendMessage(getMessage(), threadID);
-    }, 30000);
+    }, ms);
 
     xavierIntervals.set(threadID, interval);
   }
