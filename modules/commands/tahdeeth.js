@@ -36,7 +36,7 @@ module.exports.run = async function({ api, event, args }) {
   try {
     fs.writeFileSync(msgPath, newMsg, "utf8");
     return api.sendMessage(
-      `✅ تم تحديث رسالة التوسيع\n\n📝 الرسالة الجديدة:\n${newMsg}\n\nالآن عند قول تفعيل توسيع سترسل هذه الرسالة كل 30 ثانية`,
+      `✅ تم تحديث رسالة التوسيع\n\nستُرسل الرسالة الجديدة في الدورة القادمة. لن يتم إرسالها الآن.`,
       threadID, messageID
     );
   } catch (e) {
