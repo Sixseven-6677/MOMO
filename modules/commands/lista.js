@@ -1,100 +1,53 @@
 module.exports.config = {
   name: "لستة",
-  version: "4.0.0",
+  version: "3.0.0",
   hasPermssion: 0,
   credits: "XAVIER",
-  description: "عرض قائمة الاوامر",
+  description: "عرض قائمة جميع الأوامر مع طريقة الاستخدام مرتبة حسب الفئة",
   commandCategory: "أوامر",
-  usages: "لستة | لستة 2",
+  usages: "لستة",
   cooldowns: 0
 };
 
-module.exports.run = async function({ api, event, args }) {
+module.exports.run = async function({ api, event }) {
   const { threadID, messageID } = event;
+  const { commands } = global.client;
 
-  const page = args[0] === "2" ? 2 : 1;
+  const all = [...commands.values()];
 
-  if (page === 1) {
-    const msg =
-`🪯 𝕱𝗂𝗋𝗌𝗍 𝖼𝗈𝗆𝗆𝖺𝗇𝖽 𝙈𝖾𝗇𝗎
-⩽  1/2 ⩾
-
-𝟭-𝘼𝘥𝗺𝗂𝗇𝘀 𝗖𝗈𝗇𝗍𝗋𝗈𝗅:
--تحكم بكل صلاحيات البوت وقائمة الادمن. 👁️‍🗨️
--الاوامر: [ادمن فقط]،[ادمن الكل]،[ادمن تحديث ID]،[ادمن ازالة ID]. ꗇ
-
-𝟮-𝙍𝘦𝘮𝘱𝘢𝘨𝘦:
--إزالة كل الادمنز في القروب وإضافة البوت كأدمن. 👁️‍🗨️
--الاوامر: [ابادة تفعيل]. ꗇ
-
-𝟯-𝗡𝖺𝗆𝖾:
--تغيير اسم الكروب مع الحماية من التغيير. 👁️‍🗨️
--الاوامر: [اسم الاسم]،[اسم توقف]،[اسم حماية]،[اسم حماية لا]. ꗇ
-
-𝟰-𝗔𝖽𝗆𝗂𝗇𝗌 𝗟𝗂𝗌𝗍:
--عرض قائمة خاصة بأدمنز البوت. 👁️‍🗨️
--الاوامر: [الادمنز]. ꗇ
-
-𝟱-𝗦𝗂𝗅𝖾𝗇𝗍:
--تجاهل أي شخص غير أدمن البوت بشكل صامت. 👁️‍🗨️
--الاوامر: [تجاهل]،[تجاهل توقف]. ꗇ
-
-𝟲-𝗔𝘂𝘁𝗼 𝗠𝗲𝘀𝘀𝖺𝗴𝖾:
--تحديث رسالة البوت التي ترسل كل 30 ثانية. 👁️‍🗨️
--الاوامر: [تحديث رسالة النص]. ꗇ
-
-𝟳-𝗔𝘂𝘁𝗼 𝗥𝖾𝗽𝗹𝗒:
--البوت يرسل رسالة تلقائية كل 30 ثانية. 👁️‍🗨️
--الاوامر: [تفعيل توسيع]،[كسر التوسيع]. ꗇ
-
-𝖯𝗅𝖾𝖺𝗌𝖾 𝗌𝖺𝗒 لستة 2 𝗍𝗈 𝖦𝗈 𝗍𝗈 𝗍𝗁𝖾 𝗌𝖾𝖼𝗈𝗇𝖽 𝗆𝖾𝗇𝗎 ꗇ`;
-
-    return api.sendMessage(msg, threadID, messageID);
+  // Group commands by category
+  const groups = new Map();
+  for (const cmd of all) {
+    const cat = (cmd.config.commandCategory || "أخرى").trim() || "أخرى";
+    if (!groups.has(cat)) groups.set(cat, []);
+    groups.get(cat).push(cmd);
   }
 
-  if (page === 2) {
-    const msg =
-`🪯 𝕾𝖾𝖼𝗈𝗇𝖽 𝖼𝗈𝗆𝗆𝖺𝗇𝖽 𝙈𝖾𝗇𝗎
-⩽  2/2 ⩾
-
-𝟴-𝗡𝗂𝖼𝗄𝗇𝖺𝗆𝖾𝘀:
--تغيير كنيات الكروب مع الحماية. 👁️‍🗨️
--الاوامر: [كنيات الاسم]،[كنيات توقف]،[كنيات حماية الكنية]،[كنيات حماية لا]. ꗇ
-
-𝟵-𝗞𝗂𝖼𝗄:
--طرد شخص عند الرد على رسالته. 👁️‍🗨️
--الاوامر: [طرد - مع الرد على رسالة الشخص]. ꗇ
-
-𝟭𝟬-𝗙𝗈𝗈𝗍𝖻𝖺𝗅𝗅 𝗤𝘂𝗂𝘇:
--سؤال عن لاعب كرة قدم، لديك 60 ثانية للإجابة. 👁️‍🗨️
--الاوامر: [كرة]. ꗇ
-
-𝟭𝟭-𝗧𝗿𝘂𝗍𝗁 𝗼𝗿 𝗗𝖺𝗋𝖾:
--لعبة صراحة وجرأة. 👁️‍🗨️
--الاوامر: [صراحة صراحة]،[صراحة جرأة]. ꗇ
-
-𝟭𝟮-𝗤𝘂𝗲𝘀𝘁𝗂𝗼𝗻𝘀:
--سؤال عشوائي للكروب. 👁️‍🗨️
--الاوامر: [اسئلة]. ꗇ
-
-𝟭𝟯-𝗜𝗻𝗾𝘂𝗂𝗿𝗒:
--البوت يرد على أي سؤال تسأله. 👁️‍🗨️
--الاوامر: [استفسار السؤال]. ꗇ
-
-𝟭𝟰-𝗚𝗿𝗼𝘂𝗽𝘀:
--قائمة القروبات مع التحكم بكل قروب. 👁️‍🗨️
--الاوامر: [قروبات]،[قروبات تعطيل رقم]،[قروبات تفعيل رقم]. ꗇ
-
-𝟭𝟱-𝗗𝖾𝗅𝖾𝗍𝖾:
--حذف رسالة عن طريق الرد عليها. 👁️‍🗨️
--الاوامر: [حذف - مع الرد على الرسالة]. ꗇ
-
-𝟭𝟲-𝗟𝖾𝖺𝗏𝖾:
--إخراج البوت من القروب. 👁️‍🗨️
--الاوامر: [اطلع برا]. ꗇ
-
-ꕺ إجمالي الاوامر: 𝟏𝟔 ꕺ`;
-
-    return api.sendMessage(msg, threadID, messageID);
+  // Sort each group by name
+  for (const [, list] of groups) {
+    list.sort((a, b) => a.config.name.localeCompare(b.config.name, "ar"));
   }
+
+  const sortedCats = [...groups.keys()].sort((a, b) => a.localeCompare(b, "ar"));
+
+  let counter = 0;
+  const sections = sortedCats.map(cat => {
+    const lines = groups.get(cat).map(cmd => {
+      counter++;
+      const name = cmd.config.name;
+      const usage = cmd.config.usages || name;
+      const desc = cmd.config.description || "";
+      return `${counter}. ${name}\n   📌 ${desc}\n   ✏️ ${usage}`;
+    });
+    return `━━━ ${cat} (${groups.get(cat).length}) ━━━\n\n${lines.join("\n\n")}`;
+  });
+
+  const msg =
+    `⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁\n` +
+    `➢︱ 𝑿𝑨𝑽𝑰𝑬𝑹 ᚔ 𝑪𝑴𝑫 𝑳𝑰𝑺𝑻 ︱⚕\n` +
+    `⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁\n\n` +
+    sections.join("\n\n") +
+    `\n\n⧺ إجمالي الأوامر: ${all.length} ⧺`;
+
+  return api.sendMessage(msg, threadID, messageID);
 };
