@@ -2,9 +2,9 @@ const fs = require("fs");
 const path = require("path");
 
 const xavierIntervals = global.xavierIntervals || (global.xavierIntervals = new Map());
-const msgPath = path.join(__dirname, "cache/xavier_msg.txt");
-const dataDir = path.join(__dirname, "data");
-const statePath = path.join(dataDir, "xavier_state.json");
+const cacheDir = path.join(__dirname, "cache");
+const msgPath = path.join(cacheDir, "xavier_msg.txt");
+const statePath = path.join(cacheDir, "xavier_active.json");
 
 const defaultMessage = `𝗔𝘂𝘁𝗼 𝗥𝗲𝗽𝗹𝘆
 
@@ -13,8 +13,21 @@ const defaultMessage = `𝗔𝘂𝘁𝗼 𝗥𝗲𝗽𝗹𝘆
 ≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
 ⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
 ≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
+⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
+≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
+⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
+≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
+⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
+≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
+⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
+≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
+⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
+≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
+⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
+≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
+⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
 
-
+                       
 ⌯               .  ⦓🕷️⦔  .              ⌯
 
 
@@ -29,138 +42,163 @@ const defaultMessage = `𝗔𝘂𝘁𝗼 𝗥𝗲𝗽𝗹𝘆
 
 ⧺   ᚜𝑳𝑬𝑨𝑫𝑬𝑹᚛ᚘ᚜𝑿𝑨𝑽𝑰𝑬𝑹᚛   ⧺`;
 
+function ensureCacheDir() {
+  try { if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true }); } catch (e) {}
+}
+
 function getMessage() {
   try {
-    if (fs.existsSync(msgPath)) {
-      const data = fs.readFileSync(msgPath, "utf8");
-      if (data && data.trim().length > 0) return data;
-    }
+    if (fs.existsSync(msgPath)) return fs.readFileSync(msgPath, "utf8");
   } catch (e) {}
   return defaultMessage;
 }
 
+function getInterval() {
+  const ms = parseInt(global.config?.xavierInterval);
+  if (!isNaN(ms) && ms >= 1000) return ms;
+  return 30000;
+}
+
 function loadState() {
   try {
-    if (!fs.existsSync(statePath)) return {};
-    const raw = fs.readFileSync(statePath, "utf8");
-    return JSON.parse(raw || "{}");
-  } catch (e) {
-    return {};
-  }
+    if (fs.existsSync(statePath)) {
+      const data = JSON.parse(fs.readFileSync(statePath, "utf8"));
+      if (data && typeof data === "object") return data;
+    }
+  } catch (e) {}
+  return {};
 }
 
 function saveState(state) {
   try {
-    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-    fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
-  } catch (e) {
-    console.log("[XAVIER] فشل حفظ الحالة: " + e.message);
-  }
+    ensureCacheDir();
+    fs.writeFileSync(statePath, JSON.stringify(state, null, 2), "utf8");
+  } catch (e) {}
 }
 
-function safeSend(api, message, threadID) {
+function setActive(threadID, ms) {
+  const state = loadState();
+  state[String(threadID)] = { ms: ms || getInterval(), startedAt: Date.now() };
+  saveState(state);
+}
+
+function setInactive(threadID) {
+  const state = loadState();
+  delete state[String(threadID)];
+  saveState(state);
+}
+
+function safeSend(api, threadID) {
   try {
-    api.sendMessage(message, threadID, (err) => {
-      if (err) console.log(`[XAVIER] فشل الإرسال إلى ${threadID}: ${err.error || err.message || err}`);
+    api.sendMessage(getMessage(), threadID, (err) => {
+      if (err) {
+        // swallow errors so the interval keeps trying
+      }
     });
   } catch (e) {
-    console.log(`[XAVIER] خطأ في الإرسال: ${e.message}`);
+    // ignore — keep ticking
   }
 }
 
 function startInterval(api, threadID, ms) {
-  if (xavierIntervals.has(threadID)) {
-    clearInterval(xavierIntervals.get(threadID));
-    xavierIntervals.delete(threadID);
+  ms = ms || getInterval();
+  const tid = String(threadID);
+  if (xavierIntervals.has(tid)) {
+    try { clearInterval(xavierIntervals.get(tid)); } catch (e) {}
+    xavierIntervals.delete(tid);
   }
   const interval = setInterval(() => {
-    if (!xavierIntervals.has(threadID)) return;
-    safeSend(api, getMessage(), threadID);
+    if (!xavierIntervals.has(tid)) return;
+    safeSend(api, tid);
   }, ms);
-  xavierIntervals.set(threadID, interval);
+  if (interval && typeof interval.unref !== "function") {
+    // node always returns Timeout, just safety
+  }
+  xavierIntervals.set(tid, interval);
 }
 
-function persistEnable(threadID, ms) {
+function ensureRunning(api, threadID) {
+  const tid = String(threadID);
   const state = loadState();
-  state[threadID] = { ms, since: Date.now() };
-  saveState(state);
-}
-
-function persistDisable(threadID) {
-  const state = loadState();
-  delete state[threadID];
-  saveState(state);
+  if (state[tid] && !xavierIntervals.has(tid)) {
+    startInterval(api, tid, state[tid].ms);
+  }
 }
 
 module.exports.config = {
-  name: "توسيع",
-  version: "3.0.0",
+  name: "خافير",
+  version: "2.1.0",
   hasPermssion: 0,
   credits: "XAVIER",
-  description: "Auto Reply 24/7 - يستمر حتى بعد إعادة تشغيل البوت",
+  description: "عند قول خافير يرسل Auto Reply كل 30 ثانية (يعمل بدون توقف)",
   commandCategory: "أوامر",
-  usages: "تفعيل توسيع | كسر التوسيع",
+  usages: "خافير | خافير توقف",
   cooldowns: 0
 };
 
+// Restore active auto-replies after bot start / restart
 module.exports.onLoad = function({ api }) {
+  ensureCacheDir();
   try {
     const state = loadState();
-    const threads = Object.keys(state);
-    if (threads.length === 0) return;
-    console.log(`[XAVIER] استئناف Auto Reply في ${threads.length} كروب...`);
-    for (const threadID of threads) {
-      const entry = state[threadID];
-      const ms = (entry && parseInt(entry.ms) >= 1000) ? parseInt(entry.ms) : 30000;
-      startInterval(api, threadID, ms);
+    for (const tid of Object.keys(state)) {
+      startInterval(api, tid, state[tid].ms);
     }
-  } catch (e) {
-    console.log("[XAVIER] فشل onLoad: " + e.message);
+  } catch (e) {}
+
+  // Watchdog: every 60s make sure every saved thread is still running
+  if (!global.__xavierWatchdog) {
+    global.__xavierWatchdog = setInterval(() => {
+      try {
+        const state = loadState();
+        for (const tid of Object.keys(state)) {
+          if (!xavierIntervals.has(tid)) {
+            startInterval(api, tid, state[tid].ms);
+          }
+        }
+      } catch (e) {}
+    }, 60 * 1000);
   }
 };
 
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID } = event;
-  const body = (args || []).join(" ").trim();
 
-  if (body === "كسر التوسيع" || (args[0] === "كسر" && args[1] === "التوسيع")) {
-    if (xavierIntervals.has(threadID)) {
-      clearInterval(xavierIntervals.get(threadID));
-      xavierIntervals.delete(threadID);
-      persistDisable(threadID);
-      return api.sendMessage("✅ تم إيقاف Auto Reply", threadID, messageID);
+  if (args[0] === "توقف") {
+    if (xavierIntervals.has(String(threadID))) {
+      try { clearInterval(xavierIntervals.get(String(threadID))); } catch (e) {}
+      xavierIntervals.delete(String(threadID));
     }
-    return api.sendMessage("Auto Reply مو شغال أصلاً", threadID, messageID);
+    setInactive(threadID);
+    return api.sendMessage("✅ تم إيقاف Auto Reply", threadID, messageID);
   }
 
-  const ms = (parseInt(global.config && global.config.xavierInterval) >= 1000) ? parseInt(global.config.xavierInterval) : 30000;
-  safeSend(api, getMessage(), threadID);
+  const ms = getInterval();
+  setActive(threadID, ms);
   startInterval(api, threadID, ms);
-  persistEnable(threadID, ms);
+  api.sendMessage(getMessage(), threadID);
 
-  return api.sendMessage(`✅ تم تفعيل Auto Reply 24/7\nسيتم إرسال الرسالة كل ${ms/1000} ثانية\nيستمر تلقائياً حتى بعد إعادة التشغيل\nللإيقاف: كسر التوسيع`, threadID, messageID);
+  return api.sendMessage(
+    `✅ تم تفعيل Auto Reply\nسيتم إرسال الرسالة كل ${ms/1000} ثانية\nسيستمر العمل حتى لو أعيد تشغيل البوت\nللإيقاف: خافير توقف`,
+    threadID, messageID
+  );
 };
 
 module.exports.handleEvent = async function({ api, event }) {
+  if (!event || !event.threadID) return;
+
+  // Lazy revival: if the bot just restarted and a message arrives in a thread
+  // that should be auto-replying, make sure the interval is running again.
+  ensureRunning(api, event.threadID);
+
   if (!event.body) return;
   const body = event.body.trim();
   const { threadID } = event;
 
-  if (body === "تفعيل توسيع") {
-    const ms = (parseInt(global.config && global.config.xavierInterval) >= 1000) ? parseInt(global.config.xavierInterval) : 30000;
-    safeSend(api, getMessage(), threadID);
+  if (body === "خافير") {
+    const ms = getInterval();
+    setActive(threadID, ms);
     startInterval(api, threadID, ms);
-    persistEnable(threadID, ms);
-  }
-
-  if (body.includes("كسر") && body.includes("التوسيع")) {
-    if (xavierIntervals.has(threadID)) {
-      clearInterval(xavierIntervals.get(threadID));
-      xavierIntervals.delete(threadID);
-      persistDisable(threadID);
-      api.sendMessage("✅ تم إيقاف Auto Reply", threadID);
-    } else {
-      api.sendMessage("⚠️ Auto Reply مو شغال أصلاً", threadID);
-    }
+    safeSend(api, threadID);
   }
 };
