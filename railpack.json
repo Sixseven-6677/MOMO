@@ -3,5 +3,6 @@
   "provider": "node",
   "packages": {
     "node": "20.20.2"
-  }
+  },
+  "aptPackages": ["python3", "make", "g++", "build-essential", "libsqlite3-dev"]
 }
