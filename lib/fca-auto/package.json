@@ -52,7 +52,7 @@
     "figlet": "latest"
   },
   "engines": {
-    "node": ">=14.x"
+    "node": ">=18"
   },
   "devDependencies": {
     "eslint": "^8.40.0",
