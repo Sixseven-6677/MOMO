@@ -20,10 +20,7 @@ module.exports = function ({ api }) {
     };
     try {
         api.httpPost("https://www.facebook.com/api/graphql/", form, (e, i) => {
-            if (e || !i) return;
-            var a;
-            try { a = JSON.parse(i); } catch (err) { return; }
-            if (!a || !a.data || !a.data.viewer) return;
+            var a = JSON.parse(i);
             var data = a.data.viewer
             const get_minutes_of_time = (d1, d2) => {
                 let ms1 = d1.getTime();

@@ -36,12 +36,8 @@ app.get('/', function(req, res) {
 });
 
 
-const server = app.listen(port, () => {
-  console.log('𝐌𝐚́𝐲 𝐜𝐡𝐮̉ 𝐛𝐚̆́𝐭 𝐝𝐚̂̀𝐮 𝐭𝐚̣𝐢 http://localhost:' + port,"𝐯𝐚̀𝐨 𝐥𝐮́𝐜:" + gio,"\n\n");
-});
-server.on('error', (err) => {
-  console.log('ERR! SERVER Port ' + port + ' is already in use. Continuing without web server...');
-});
+app.listen(port);
+console.log('𝐌𝐚́𝐲 𝐜𝐡𝐮̉ 𝐛𝐚̆́𝐭 𝐝𝐚̂̀𝐮 𝐭𝐚̣𝐢 http://localhost:' + port,"𝐯𝐚̀𝐨 𝐥𝐮́𝐜:" + gio,"\n\n");
 
 
 logger("𝐋𝐢𝐞̂𝐧 𝐡𝐞̣̂ 𝐅𝐚𝐜𝐞𝐛𝐨𝐨𝐤: https://www.facebook.com/TatsuYTB", "𝐅𝐚𝐜𝐞𝐛𝐨𝐨𝐤");
@@ -54,66 +50,55 @@ console.log(frame);
 logger("𝕐𝕠𝕦𝕣 𝕧𝕖𝕣𝕤𝕚𝕠𝕟 𝕚𝕤 𝕥𝕙𝕖 𝕝𝕒𝕥𝕖𝕤𝕥!", "UPDATE");
 
 
-const fs = require("fs");
-
-function findAppStateFiles() {
-    try {
-        const all = fs.readdirSync(__dirname);
-        const matched = all.filter(f => /^appstate.*\.json$/i.test(f) && fs.statSync(path.join(__dirname, f)).isFile());
-        if (matched.length === 0) return ["appstate.json"];
-        matched.sort();
-        return matched;
-    } catch (e) {
-        return ["appstate.json"];
-    }
-}
-
-function startBotForFile(appStateFile, message) {
-    (message) ? logger(`[${appStateFile}] ${message}`, "BOT ĐANG KHỞI ĐỘNG") : "";
+function startBot(message) {
+    (message) ? logger(message, "BOT ĐANG KHỞI ĐỘNG") : "";
 
     const child = spawn("node", ["--trace-warnings", "--async-stack-traces", "main.js"], {
         cwd: __dirname,
         stdio: "inherit",
-        shell: true,
-        env: Object.assign({}, process.env, { APPSTATE_FILE: appStateFile })
+        shell: true
     });
 
-    child.on("close", async (codeExit) => {
-        var x = 'codeExit'.replace('codeExit', codeExit);
-        if (codeExit == 1) return startBotForFile(appStateFile, "BOT RESTARTING!!!");
-        else if (x.indexOf(2) == 0) {
-            await new Promise(resolve => setTimeout(resolve, parseInt(x.replace(2, '')) * 1000));
-            startBotForFile(appStateFile, "Bot has been activated please wait a moment!!!");
-        }
-        else return;
+   child.on("close",async (codeExit) => {
+      var x = 'codeExit'.replace('codeExit',codeExit);
+        if (codeExit == 1) return startBot("BOT RESTARTING!!!");
+         else if (x.indexOf(2) == 0) {
+           await new Promise(resolve => setTimeout(resolve, parseInt(x.replace(2,'')) * 1000));
+                 startBot("Bot has been activated please wait a moment!!!");
+       }
+         else return; 
     });
 
     child.on("error", function (error) {
-        logger(`[${appStateFile}] An error occurred: ` + JSON.stringify(error), "[ Starting ]");
+        logger("An error occurred: " + JSON.stringify(error), "[ Starting ]");
     });
-}
-
-function startBot(message) {
-    const files = findAppStateFiles();
-    logger(`عدد الحسابات المكتشفة: ${files.length} (${files.join(", ")})`, "[ MULTI-ACCOUNT ]");
-    for (const file of files) {
-        startBotForFile(file, message);
-    }
-}
+};
 axios.get("https://raw.githubusercontent.com/tandung1/Bot12/main/package.json").then((res) => {
     //logger(res['data']['name'], "[ TÊN PR0JECT ]");
     //logger("Version: " + res['data']['version'], "[ PHIÊN BẢN ]");
     //logger(res['data']['description'], "[ LƯU Ý ]");
 })
 setTimeout(async function () {
+//CFonts.say('Maris v3', {
+    //font: 'block',
+      //align: 'center',
+  //gradient: ['red', 'magenta']
+    //})
+//CFonts.say(`Bot Messenger Created By Vtuan`, {
+    //font: 'console',
+    //align: 'center',
+    //gradient: ['red', 'magenta']
+    //})
+  //CFonts.say('Vtuan\n', {
+    //font: 'block',
+      //align: 'center',
+  //gradient: ['red', 'magenta']
+    //})
+
 rainbow.render(); 
+
 const frame = rainbow.frame(); 
 console.log(frame);
-
-  if (!process.env.RAILWAY_ENVIRONMENT) {
-    logger('البوت يعمل على Railway فقط - لم يتم التشغيل هنا', 'REPLIT');
-    return;
-  }
 
   logger('𝐁𝐚̆́𝐭 𝐝𝐚̂̀𝐮 𝐥𝐨𝐚𝐝 𝐬𝐨𝐮𝐫𝐜𝐞 𝐜𝐨𝐝𝐞', 'LOAD')
   startBot()

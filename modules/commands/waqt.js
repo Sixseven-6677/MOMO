@@ -7,7 +7,7 @@ module.exports.config = {
   version: "1.0.0",
   hasPermssion: 0,
   credits: "XAVIER",
-  description: "تغيير زمن رسالة التوسيع بالثواني",
+  description: "تغيير زمن رسالة التوسيع (خافير) بالثواني",
   commandCategory: "أوامر",
   usages: "وقت [عدد الثواني] | وقت (لمعرفة الوقت الحالي)",
   cooldowns: 0
@@ -25,7 +25,9 @@ module.exports.run = async function({ api, event, args }) {
 
   if (!args[0]) {
     return api.sendMessage(
-      `⏱ زمن رسالة التوسيع الحالي: ${currentMs/1000} ثانية\n\nلتغييره: وقت [عدد الثواني]\nمثال: وقت 60`,
+      `⏱ زمن رسالة التوسيع الحالي: ${currentMs/1000} ثانية\n\n` +
+      `لتغييره: وقت [عدد الثواني]\n` +
+      `مثال: وقت 60`,
       threadID, messageID
     );
   }
@@ -42,7 +44,8 @@ module.exports.run = async function({ api, event, args }) {
   global.config.xavierInterval = ms;
 
   return api.sendMessage(
-    `✅ تم تغيير زمن رسالة التوسيع إلى ${seconds} ثانية\n⚠️ الجلسات الشغّالة حالياً تحتاج إعادة تشغيل لتحديث الوقت`,
+    `✅ تم تغيير زمن رسالة التوسيع إلى ${seconds} ثانية\n` +
+    `⚠️ الجلسات الشغّالة حالياً ستحتاج لإعادة تشغيل الأمر "خافير" لتحديث الوقت`,
     threadID, messageID
   );
 };

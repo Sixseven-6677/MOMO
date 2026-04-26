@@ -2,12 +2,12 @@ const koniyatIntervals = global.koniyatIntervals || (global.koniyatIntervals = n
 
 module.exports.config = {
   name: "كنيات",
-  version: "1.1.0",
+  version: "1.0.0",
   hasPermssion: 0,
   credits: "PARADISE",
-  description: "تغيير/حذف كنيات جميع أعضاء الكروب",
+  description: "تغيير كنيات جميع أعضاء الكروب واحداً واحداً كل 5 ثوانٍ",
   commandCategory: "أوامر",
-  usages: "كنيات [الاسم] | كنيات حذف | كنيات توقف",
+  usages: "[الاسم] | توقف",
   cooldowns: 0
 };
 
@@ -23,49 +23,8 @@ module.exports.run = async function({ api, event, args }) {
     return api.sendMessage("ما في شيء شغال أصلاً", threadID, messageID);
   }
 
-  if (args[0] === "حذف") {
-    if (koniyatIntervals.has(threadID)) {
-      clearTimeout(koniyatIntervals.get(threadID));
-      koniyatIntervals.delete(threadID);
-    }
-
-    let members;
-    try {
-      const threadInfo = await api.getThreadInfo(threadID);
-      members = threadInfo.participantIDs;
-    } catch (e) {
-      return api.sendMessage("❌ ما قدرت أجيب أعضاء الكروب", threadID, messageID);
-    }
-
-    api.sendMessage(
-      `🧹 بدأ حذف كنيات الجميع (${members.length} عضو)\nكل ثانية يتم مسح كنية واحدة\nللإيقاف: كنيات توقف`,
-      threadID, messageID
-    );
-
-    let i = 0;
-    const clearNext = () => {
-      if (!koniyatIntervals.has(threadID)) return;
-      if (i >= members.length) {
-        koniyatIntervals.delete(threadID);
-        api.sendMessage("✅ تم حذف كنيات جميع الأعضاء", threadID);
-        return;
-      }
-      api.changeNickname("", threadID, members[i]);
-      i++;
-      const t = setTimeout(clearNext, 1000);
-      koniyatIntervals.set(threadID, t);
-    };
-
-    const t = setTimeout(clearNext, 100);
-    koniyatIntervals.set(threadID, t);
-    return;
-  }
-
   if (!args[0]) {
-    return api.sendMessage(
-      "الاستخدام:\n• كنيات [الاسم] ← لتعيين كنية للجميع\n• كنيات حذف ← لمسح كنيات الجميع\n• كنيات توقف ← لإيقاف العملية الحالية",
-      threadID, messageID
-    );
+    return api.sendMessage("اكتب الاسم الذي تريد تعيينه\nمثال: كنيات 𝑷𝑨𝑹𝑨𝑫𝑰𝑺𝑬", threadID, messageID);
   }
 
   const name = args.join(" ");

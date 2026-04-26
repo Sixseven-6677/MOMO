@@ -24,27 +24,26 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
          let usages = JSON.parse(fs.readFileSync(usgPath));
          
    if(!global.data.allThreadID.includes(threadID) && !ADMINBOT.includes(senderID) && adminbot.adminPaseOnly == true) {
- return api.sendMessage("❌ هذا الأمر لأدمن البوت فقط في المحادثات الخاصة!", threadID, messageID)
+ return api.sendMessage("Admin bot mới dùng bot trong đoạn chat riêng!!", threadID, messageID)
 }    
    if (!ADMINBOT.includes(senderID) && adminbot.adminOnly == true) {
-     if (!ADMINBOT.includes(senderID) && adminbot.adminOnly == true) return api.sendMessage('❌ هذا الأمر لأدمن البوت فقط!', threadID, messageID)
+     if (!ADMINBOT.includes(senderID) && adminbot.adminOnly == true) return api.sendMessage('Admin bot mới sử dụng được!!', threadID, messageID)
    }
    if (!ADMINBOT.includes(senderID) && global.config.ignoreNonAdmin == true) return;
    if (global.config.totalSilence == true) {
      if (!ADMINBOT.includes(senderID)) return;
-     const _matchPref = body.match(prefixRegex);
-     const silentBody = body.slice((_matchPref ? _matchPref[0] : "").length).trim();
-     if (!/^تجاهل\s+كلي\s+توقف\s*$/.test(silentBody)) return;
+     const silentBody = body.slice((body.match(prefixRegex)[0] || "").length).trim();
+     const isToggleOff = /^تجاهل\s+كلي\s+توقف\s*$/.test(silentBody);
+     if (!isToggleOff) return;
    }
     if (!NDH.includes(senderID) && !ADMINBOT.includes(senderID) && adminbot.ndhOnly == true) { 
-         return api.sendMessage('❌ هذا الأمر غير متاح لك', threadID, messageID)
+         return api.sendMessage('NDH mới có thể sử dụng bot', threadID, messageID)
 
        }
-let dataAdbox = { adminbox: {} };
-try { dataAdbox = require('./../../modules/commands/cache/data.json'); } catch(e) {}
+const dataAdbox = require('./../../modules/commands/cache/data.json');
    var threadInf = (threadInfo.get(threadID) || await Threads.getInfo(threadID));
-   const findd = threadInf && threadInf.adminIDs ? threadInf.adminIDs.find(el => el.id == senderID) : null;
-  if (dataAdbox.adminbox && dataAdbox.adminbox.hasOwnProperty(threadID) && dataAdbox.adminbox[threadID] == true && !ADMINBOT.includes(senderID) && !findd && event.isGroup == true) return api.sendMessage('❌ هذا الكروب يعمل بوضع الأدمن فقط\nاكتب: ادمن الكل لتفعيل الكل', event.threadID, event.messageID)
+   const findd = threadInf.adminIDs.find(el => el.id == senderID);
+  if (dataAdbox.adminbox.hasOwnProperty(threadID) && dataAdbox.adminbox[threadID] == true && !ADMINBOT.includes(senderID) && !findd && event.isGroup == true && !NDH.includes(senderID) && !findd && event.isGroup == true) return api.sendMessage('Quản trị viên mới sử dụng được!!', event.threadID, event.messageID)
    if (userBanned.has(senderID) || threadBanned.has(threadID) || allowInbox == ![] && senderID == threadID) {
      if (!ADMINBOT.includes(senderID.toString()) && !NDH.includes(senderID.toString())) {
        if (userBanned.has(senderID)) {
@@ -66,7 +65,7 @@ try { dataAdbox = require('./../../modules/commands/cache/data.json'); } catch(e
    }
    const [matchedPrefix] = body.match(prefixRegex),
      args = body.slice(matchedPrefix.length).trim().split(/ +/);
-   commandName = args.shift().toLowerCase();
+   let commandName = args.shift().toLowerCase();
    var command = commands.get(commandName);
    fs.writeFileSync(usgPath, JSON.stringify(usages, null, 4));
 

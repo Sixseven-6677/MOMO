@@ -16,9 +16,12 @@
     "FACEBOOK_ADMIN": "",
     "PREFIX": "",
     "ADMINBOT": [
-        "61567315193917"
+        "61569087956154",
+        "61573368294302"
     ],
-    "NDH": [],
+    "NDH": [
+        ""
+    ],
     "DATABASE": {
         "sqlite": {
             "storage": "data.sqlite"
@@ -83,7 +86,7 @@
         "APIKEY": ""
     },
     "adminOnly": false,
-    "ignoreNonAdmin": false,
+    "ignoreNonAdmin": true,
     "totalSilence": false,
     "xavierInterval": 30000
 }

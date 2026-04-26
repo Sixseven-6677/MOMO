@@ -67,5 +67,5 @@ module.exports.handleEvent = async function({ api, event }) {
     try {
       await api.setTitle(name, threadID);
     } catch (e) {}
-  }, 10000);
+  }, 2000);
 };

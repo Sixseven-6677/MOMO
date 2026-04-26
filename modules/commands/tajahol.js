@@ -35,7 +35,7 @@ module.exports.run = async function({ api, event, args }) {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 4));
     global.config.totalSilence = true;
     return api.sendMessage(
-      "🔇 تم تفعيل الصمت الكلي\nالبوت لن يرد على أي شخص حتى أدمن البوت\n\nللإيقاف: تجاهل كلي توقف",
+      "🔇 تم تفعيل الصمت الكلي\nالبوت لن يرد على أي شخص حتى لو كان أدمن البوت\n\nللإيقاف: تجاهل كلي توقف",
       threadID, messageID
     );
   }

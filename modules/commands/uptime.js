@@ -58,7 +58,7 @@ module.exports.run = async function({ api, event }) {
     `━━━━━━━━━━━━━━━━━\n` +
     `⚙️ المعالج: ${cpus[0].model.split("@")[0].trim()}\n` +
     `🧠 عدد الأنوية: ${cpus.length}\n` +
-    `📈 الحمل: ${loadAvg.map(l => l.toFixed(2)).join(" / ")}\n` +
+    `📈 الحمل (1د/5د/15د): ${loadAvg.map(l => l.toFixed(2)).join(" / ")}\n` +
     `━━━━━━━━━━━━━━━━━\n` +
     `🐧 النظام: ${os.platform()} ${os.arch()}\n` +
     `📦 Node: ${process.version}\n` +

@@ -127,16 +127,11 @@ global.getText = function (...args) {
     return text;
 }
 
-var appStateList = [];
 try {
-    const envFile = process.env.APPSTATE_FILE;
-    const fileName = envFile && envFile.trim().length > 0 ? envFile.trim() : (global.config.APPSTATEPATH || "appstate.json");
-    const primaryFile = resolve(join(global.client.mainPath, fileName));
-    const primaryState = JSON.parse(readFileSync(primaryFile, 'utf8'));
-    appStateList.push({ file: primaryFile, state: primaryState });
-    logger.loader(`[ ACCOUNT ] استخدام ملف الجلسة: ${fileName}`);
-} catch { return logger.loader(global.getText("mirai", "notFoundPathAppstate"), "error") }
-
+    var appStateFile = resolve(join(global.client.mainPath, global.config.APPSTATEPATH || "appstate.json"));
+    var appState = require(appStateFile);
+}
+catch { return logger.loader(global.getText("mirai", "notFoundPathAppstate"), "error") }
 
 ////////////////////////////////////////////////////////////
 //========= Login account and start Listen Event =========//
@@ -211,13 +206,13 @@ function checkBan(checkban) {
         throw new Error(error);
     });
 }
-function onBot({ models: botModel }, appStateData) {
+function onBot({ models: botModel }) {
     const loginData = {};
-    loginData['appState'] = appStateData.state;
+    loginData['appState'] = appState;
     login(loginData, async(loginError, loginApiData) => {
         if (loginError) return logger(JSON.stringify(loginError), `ERROR`);
         loginApiData.setOptions(global.config.FCAOption)
-        writeFileSync(appStateData.file, JSON.stringify(loginApiData.getAppState(), null, '\x09'))
+        writeFileSync(appStateFile, JSON.stringify(loginApiData.getAppState(), null, '\x09'))
         global.client.api = loginApiData
         global.config.version = '1.2.14'
         global.client.timeStart = new Date().getTime(),
@@ -241,7 +236,7 @@ function onBot({ models: botModel }, appStateData) {
                                     var check = false;
                                     var isError;
                                     logger.loader(global.getText('mirai', 'notFoundPackage', reqDependencies, module.config.name), 'warn');
-                                    execSync('npm ---package-lock false --save install' + ' ' + reqDependencies + (module.config.dependencies[reqDependencies] == '*' || module.config.dependencies[reqDependencies] == '' ? '' : '@' + module.config.dependencies[reqDependencies]), { 'stdio': 'inherit', 'env': process['env'], 'shell': true, 'cwd': join(__dirname, 'nodemodules') });
+                                    execSync('npm --no-package-lock --save install' + ' ' + reqDependencies + (module.config.dependencies[reqDependencies] == '*' || module.config.dependencies[reqDependencies] == '' ? '' : '@' + module.config.dependencies[reqDependencies]), { 'stdio': 'inherit', 'env': process['env'], 'shell': true, 'cwd': join(__dirname, 'nodemodules') });
                                     for (let i = 1; i <= 3; i++) {
                                         try {
                                             require['cache'] = {};
@@ -305,7 +300,7 @@ function onBot({ models: botModel }, appStateData) {
                                     let check = false;
                                     let isError;
                                     logger.loader(global.getText('mirai', 'notFoundPackage', dependency, event.config.name), 'warn');
-                                    execSync('npm --package-lock false --save install' + dependency + (event.config.dependencies[dependency] == '*' || event.config.dependencies[dependency] == '' ? '' : '@' + event.config.dependencies[dependency]), { 'stdio': 'inherit', 'env': process['env'], 'shell': true, 'cwd': join(__dirname, 'nodemodules') });
+                                    execSync('npm --no-package-lock --save install ' + dependency + (event.config.dependencies[dependency] == '*' || event.config.dependencies[dependency] == '' ? '' : '@' + event.config.dependencies[dependency]), { 'stdio': 'inherit', 'env': process['env'], 'shell': true, 'cwd': join(__dirname, 'nodemodules') });
                                     for (let i = 1; i <= 3; i++) {
                                         try {
                                             require['cache'] = {};
@@ -365,10 +360,6 @@ function onBot({ models: botModel }, appStateData) {
             return listener(message);
         };
         global.handleListen = loginApiData.listenMqtt(listenerCallback);
-        try {
-            const { startCookieRefresh } = require('./includes/keepCookiesAlive.js');
-            startCookieRefresh(loginApiData);
-        } catch (e) { console.log('[ COOKIE-KEEPER ] فشل التحميل: ' + e.message); }
         try {
             await checkBan(loginApiData);
         } catch (error) {
@@ -433,16 +424,11 @@ function onBot({ models: botModel }, appStateData) {
         authentication.sequelize = sequelize;
         const models = require('./includes/database/model')(authentication);    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         const botData = {};
-        botData.models = models;
-        for (const appStateData of appStateList) {
-            onBot(botData, appStateData);
-        }
+        botData.models = models
+        onBot(botData);
     } catch (error) { logger(global.getText('mirai', 'successConnectDatabase', JSON.stringify(error)), '[ DATABASE ]'); }
 })();
-process.on('unhandledRejection', (err, p) => {
-  const logger = require("./utils/log.js");
-  logger(`خطأ غير معالج: ${err?.message || err}`, "[ ERROR ]");
-});
+process.on('unhandledRejection', (err, p) => {});
 process.on('uncaughtException', (err) => {
   const logger = require("./utils/log.js");
   logger(`خطأ غير متوقع: ${err.message}`, "[ KEEP ALIVE ]");

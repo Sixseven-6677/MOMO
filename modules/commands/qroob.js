@@ -3,7 +3,7 @@ module.exports.config = {
   version: "1.0.0",
   hasPermssion: 0,
   credits: "XAVIER",
-  description: "تنفيذ إجراءات على قروب محدد بالرقم",
+  description: "تنفيذ إجراءات على قروب محدد بالرقم (إضافة، اسم، الخ)",
   commandCategory: "أوامر",
   usages: "قروب [رقم] اضافة [ID] | قروب [رقم] اضافة (لإضافة نفسك)",
   cooldowns: 0
@@ -34,7 +34,9 @@ module.exports.run = async function({ api, event, args }) {
     }
     return api.sendMessage(
       `📋 قائمة القروبات:\n\n${lines.join("\n")}\n\n` +
-      `أمثلة:\n• قروب 1 اضافة 1234567890\n• قروب 2 اضافة (لإضافة نفسك)`,
+      `أمثلة:\n` +
+      `• قروب 1 اضافة 1234567890\n` +
+      `• قروب 2 اضافة (لإضافة نفسك)`,
       threadID, messageID
     );
   }
