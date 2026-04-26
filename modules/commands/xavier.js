@@ -2,7 +2,8 @@ const fs = require("fs");
 const path = require("path");
 
 const xavierActive = global.xavierActive || (global.xavierActive = new Set());
-const xavierTimers = global.xavierTimers || (global.xavierTimers = new Map());
+const xavierQueue = global.xavierQueue || (global.xavierQueue = new Map());
+const xavierRecent = global.xavierRecent || (global.xavierRecent = new Map());
 
 const msgPath = path.join(__dirname, "cache/xavier_msg.txt");
 
@@ -55,12 +56,6 @@ function getInterval() {
   return 30000;
 }
 
-function clearThreadTimer(threadID) {
-  const existing = xavierTimers.get(threadID);
-  if (existing && existing.timeout) clearTimeout(existing.timeout);
-  xavierTimers.delete(threadID);
-}
-
 function getBotID(api) {
   try {
     if (typeof api.getCurrentUserID === "function") return String(api.getCurrentUserID());
@@ -68,28 +63,55 @@ function getBotID(api) {
   return null;
 }
 
-function scheduleReply(api, threadID, messageID) {
-  clearThreadTimer(threadID);
+function clearQueue(threadID) {
+  const q = xavierQueue.get(threadID);
+  if (q) q.forEach(it => clearTimeout(it.timer));
+  xavierQueue.delete(threadID);
+  xavierRecent.delete(threadID);
+}
+
+function enqueueReply(api, threadID, messageID) {
   const ms = getInterval();
-  const timeout = setTimeout(() => {
-    if (!xavierActive.has(threadID)) {
-      clearThreadTimer(threadID);
-      return;
-    }
-    try {
-      api.sendMessage(getMessage(), threadID, messageID);
-    } catch (e) {}
-    xavierTimers.delete(threadID);
+  let queue = xavierQueue.get(threadID);
+  if (!queue) { queue = []; xavierQueue.set(threadID, queue); }
+
+  let recent = xavierRecent.get(threadID) || [];
+  const now = Date.now();
+  recent.push(now);
+  if (recent.length > 5) recent = recent.slice(-5);
+  xavierRecent.set(threadID, recent);
+
+  const item = { messageID, scheduledAt: now + ms };
+  item.timer = setTimeout(() => {
+    const idx = queue.indexOf(item);
+    if (idx !== -1) queue.splice(idx, 1);
+    if (!xavierActive.has(threadID)) return;
+    try { api.sendMessage(getMessage(), threadID, messageID); } catch (e) {}
   }, ms);
-  xavierTimers.set(threadID, { timeout, messageID });
+  queue.push(item);
+
+  if (recent.length >= 5) {
+    let isBurst = true;
+    for (let i = 1; i < recent.length; i++) {
+      if (recent[i] - recent[i - 1] > 1000) { isBurst = false; break; }
+    }
+    if (isBurst && queue.length > 3) {
+      const tail = queue.slice(-3);
+      const toCancel = queue.slice(0, queue.length - 3);
+      toCancel.forEach(it => clearTimeout(it.timer));
+      queue.length = 0;
+      tail.forEach(it => queue.push(it));
+      xavierQueue.set(threadID, queue);
+    }
+  }
 }
 
 module.exports.config = {
   name: "خافير",
-  version: "3.0.0",
+  version: "3.1.0",
   hasPermssion: 0,
   credits: "XAVIER",
-  description: "Auto Reply: يرد على آخر رسالة في القروب بعد توقف الرسائل بالمدة المحددة في أمر (وقت)",
+  description: "Auto Reply: يرد على كل رسالة بعد المدة المحددة في وقت. لو 5 رسائل متتالية بفارق ثانية → يرد على آخر 3 فقط",
   commandCategory: "أوامر",
   usages: "خافير | خافير توقف",
   cooldowns: 0
@@ -97,11 +119,11 @@ module.exports.config = {
 
 async function activate(api, threadID, messageID) {
   xavierActive.add(threadID);
-  clearThreadTimer(threadID);
+  clearQueue(threadID);
   const ms = getInterval();
   return api.sendMessage(
     `✅ تم تفعيل Auto Reply\n` +
-    `سيرد البوت على آخر رسالة في القروب بعد ${ms / 1000} ثانية من توقف الرسائل\n` +
+    `سيرد البوت على كل رسالة بعد ${ms / 1000} ثانية\n` +
     `لتغيير المدة: وقت [عدد الثواني]\n` +
     `للإيقاف: خافير توقف`,
     threadID, messageID
@@ -113,7 +135,7 @@ async function deactivate(api, threadID, messageID) {
     return api.sendMessage("Auto Reply مو شغال أصلاً", threadID, messageID);
   }
   xavierActive.delete(threadID);
-  clearThreadTimer(threadID);
+  clearQueue(threadID);
   return api.sendMessage("✅ تم إيقاف Auto Reply", threadID, messageID);
 }
 
@@ -128,17 +150,13 @@ module.exports.handleEvent = async function({ api, event }) {
   const body = event.body.trim();
   const { threadID, messageID, senderID } = event;
 
-  if (body === "خافير") {
-    return activate(api, threadID, messageID);
-  }
-  if (body === "خافير توقف") {
-    return deactivate(api, threadID, messageID);
-  }
+  if (body === "خافير") return activate(api, threadID, messageID);
+  if (body === "خافير توقف") return deactivate(api, threadID, messageID);
 
   if (!xavierActive.has(threadID)) return;
 
   const botID = getBotID(api);
   if (botID && String(senderID) === botID) return;
 
-  scheduleReply(api, threadID, messageID);
+  enqueueReply(api, threadID, messageID);
 };
