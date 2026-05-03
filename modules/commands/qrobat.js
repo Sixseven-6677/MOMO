@@ -15,12 +15,12 @@ function saveDisabled(list) {
 
 module.exports.config = {
   name: "قروبات",
-  version: "1.0.0",
+  version: "2.0.0",
   hasPermssion: 0,
   credits: "XAVIER",
   description: "قائمة القروبات التي يوجد فيها البوت مع التحكم بكل قروب",
   commandCategory: "أوامر",
-  usages: "قروبات | قروبات تعطيل [رقم] | قروبات تفعيل [رقم]",
+  usages: "قروبات | قروبات تعطيل [رقم] | قروبات تفعيل [رقم] | قروبات اضافة [رقم]",
   cooldowns: 0
 };
 
@@ -32,7 +32,7 @@ module.exports.run = async function({ api, event, args }) {
     return api.sendMessage("❌ هذا الأمر لأدمن البوت فقط", threadID, messageID);
   }
 
-  const allThreads = [...global.data.allThreadID];
+  const allThreads = [...(global.data.allThreadID || [])];
   const disabled = getDisabled();
 
   if (!args[0] || args[0] === "لستة") {
@@ -44,7 +44,7 @@ module.exports.run = async function({ api, event, args }) {
     for (const tid of allThreads) {
       let name = tid;
       try {
-        const info = global.data.threadInfo.get(tid) || await api.getThreadInfo(tid);
+        const info = (global.data.threadInfo && global.data.threadInfo.get(tid)) || await api.getThreadInfo(tid);
         name = info.threadName || `قروب ${tid}`;
       } catch (e) {}
       const status = disabled.includes(tid) ? "🔴 معطّل" : "🟢 مفعّل";
@@ -74,14 +74,14 @@ module.exports.run = async function({ api, event, args }) {
     const targetThread = allThreads[num - 1];
     let name = targetThread;
     try {
-      const info = global.data.threadInfo.get(targetThread) || await api.getThreadInfo(targetThread);
+      const info = (global.data.threadInfo && global.data.threadInfo.get(targetThread)) || await api.getThreadInfo(targetThread);
       name = info.threadName || targetThread;
     } catch (e) {}
 
     if (args[0] === "تعطيل") {
       if (!disabled.includes(targetThread)) disabled.push(targetThread);
       saveDisabled(disabled);
-      global.data.threadBanned.set(targetThread, { reason: "معطّل من الأدمن", dateAdded: new Date().toLocaleString() });
+      if (global.data.threadBanned) global.data.threadBanned.set(targetThread, { reason: "معطّل من الأدمن", dateAdded: new Date().toLocaleString() });
       return api.sendMessage(
         `🔴 تم تعطيل البوت في:\n${name}\nالبوت لن يرد في هذا القروب\n\nللتفعيل: قروبات تفعيل ${num}`,
         threadID, messageID
@@ -91,7 +91,7 @@ module.exports.run = async function({ api, event, args }) {
     if (args[0] === "تفعيل") {
       const updated = disabled.filter(id => id !== targetThread);
       saveDisabled(updated);
-      global.data.threadBanned.delete(targetThread);
+      if (global.data.threadBanned) global.data.threadBanned.delete(targetThread);
       return api.sendMessage(
         `🟢 تم تفعيل البوت في:\n${name}\nالبوت يرد الآن في هذا القروب`,
         threadID, messageID
@@ -99,8 +99,43 @@ module.exports.run = async function({ api, event, args }) {
     }
   }
 
+  // ── اضافة {رقم} — يضيف أدمن الحساب للقروب المطلوب ──
+  if (args[0] === "اضافة") {
+    const num = parseInt(args[1]);
+    if (isNaN(num) || num < 1 || num > allThreads.length) {
+      return api.sendMessage(
+        `❌ رقم غير صحيح، البوت في ${allThreads.length} قروب\nمثال: قروبات اضافة 3`,
+        threadID, messageID
+      );
+    }
+
+    const targetThread = allThreads[num - 1];
+    let name = targetThread;
+    try {
+      const info = (global.data.threadInfo && global.data.threadInfo.get(targetThread)) || await api.getThreadInfo(targetThread);
+      name = info.threadName || targetThread;
+    } catch (e) {}
+
+    try {
+      await api.addUserToGroup(senderID, targetThread);
+      return api.sendMessage(
+        `✅ تم إضافتك بنجاح إلى:\n${name}`,
+        threadID, messageID
+      );
+    } catch (e) {
+      return api.sendMessage(
+        `❌ فشل الإضافة إلى: ${name}\nقد لا يسمح البوت بإضافة أعضاء في هذا القروب`,
+        threadID, messageID
+      );
+    }
+  }
+
   return api.sendMessage(
-    `📋 أوامر القروبات:\n\nقروبات ← عرض جميع القروبات وحالتها\nقروبات تعطيل [رقم] ← البوت لا يرد في هذا القروب\nقروبات تفعيل [رقم] ← البوت يرد في هذا القروب`,
+    `📋 أوامر القروبات:\n\n` +
+    `قروبات ← عرض جميع القروبات وحالتها\n` +
+    `قروبات تعطيل [رقم] ← البوت لا يرد في هذا القروب\n` +
+    `قروبات تفعيل [رقم] ← البوت يرد في هذا القروب\n` +
+    `قروبات اضافة [رقم] ← يضيفك للقروب المطلوب فوراً`,
     threadID, messageID
   );
 };
