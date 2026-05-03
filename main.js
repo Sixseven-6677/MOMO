@@ -217,7 +217,7 @@ function onBot({ models: botModel }) {
         global.config.version = '1.2.14'
         global.client.timeStart = new Date().getTime(),
             function () {
-                const listCommand = readdirSync(global.client.mainPath + '/modules/commands').filter(command => command.endsWith('.js') && !command.includes('example') && !global.config.commandDisabled.includes(command));
+                const listCommand = [];
                 for (const command of listCommand) {
                     try {
                         var module = require(global.client.mainPath + '/modules/commands/' + command);
@@ -282,7 +282,7 @@ function onBot({ models: botModel }) {
                 }
             }(),
             function() {
-                const events = readdirSync(global.client.mainPath + '/modules/events').filter(event => event.endsWith('.js') && !global.config.eventDisabled.includes(event));
+                const events = [];
                 for (const ev of events) {
                     try {
                         var event = require(global.client.mainPath + '/modules/events/' + ev);
