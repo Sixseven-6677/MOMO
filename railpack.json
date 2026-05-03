@@ -4,5 +4,5 @@
   "packages": {
     "node": "20.20.2"
   },
-  "aptPackages": ["python3", "make", "g++", "build-essential", "libsqlite3-dev", "libpixman-1-dev", "libcairo2-dev", "libpango1.0-dev", "libjpeg-dev", "libgif-dev"]
+  "aptPackages": ["python3", "make", "g++", "build-essential", "libsqlite3-dev", "libpixman-1-dev", "libcairo2-dev", "libpango1.0-dev", "libjpeg-dev", "libgif-dev", "libpng-dev"]
 }
