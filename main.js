@@ -127,19 +127,18 @@ global.getText = function (...args) {
     return text;
 }
 
-try {
-    var appStateFile = resolve(join(global.client.mainPath, global.config.APPSTATEPATH || "appstate.json"));
-    var appState = require(appStateFile);
-}
-catch {
-    if (process.env.APPSTATE_JSON) {
-        try {
-            appState = JSON.parse(process.env.APPSTATE_JSON);
-            writeFileSync(appStateFile, JSON.stringify(appState, null, 4), 'utf8');
-        } catch (e) {
-            return logger.loader(global.getText("mirai", "notFoundPathAppstate"), "error");
-        }
-    } else {
+var appStateFile = resolve(join(global.client.mainPath, global.config.APPSTATEPATH || "appstate.json"));
+if (process.env.APPSTATE_JSON) {
+    try {
+        var appState = JSON.parse(process.env.APPSTATE_JSON);
+        writeFileSync(appStateFile, JSON.stringify(appState, null, 4), 'utf8');
+    } catch (e) {
+        return logger.loader(global.getText("mirai", "notFoundPathAppstate"), "error");
+    }
+} else {
+    try {
+        var appState = require(appStateFile);
+    } catch {
         return logger.loader(global.getText("mirai", "notFoundPathAppstate"), "error");
     }
 }
