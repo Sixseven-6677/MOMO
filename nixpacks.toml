@@ -1,5 +1,9 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "npm-9_x"]
+nixPkgs = ["nodejs_20", "python3", "gnumake", "gcc"]
+aptPkgs = ["python3", "make", "g++", "build-essential", "libsqlite3-dev", "libpixman-1-dev", "libcairo2-dev", "libpango1.0-dev", "libjpeg-dev", "libgif-dev", "libpng-dev"]
+
+[phases.install]
+cmds = ["npm install", "cd lib/fca-auto && npm install --production"]
 
 [variables]
 NIXPACKS_NODE_VERSION = "20"
