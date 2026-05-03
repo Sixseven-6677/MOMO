@@ -19,6 +19,7 @@
         "@miraipr0ject/assets": "^1.0.9",
         "adm-zip": "^0.5.10",
         "axios": "",
+        "bluebird": "^3.7.2",
         "body-parser": "",
         "caesar-salad": "",
         "cfonts": "^3.2.0",
