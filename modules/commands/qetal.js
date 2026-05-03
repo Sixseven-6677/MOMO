@@ -48,11 +48,39 @@ function savePlayer(id, data) {
 //                المهارات
 // ═══════════════════════════════════════
 const SKILLS = {
-  اندفاع:   { name: "اندفاع ⚡",  dmg: 1.8, heal: 0, staminaCost: 20, cd: 2, effect: null, desc: "ضربة سريعة ×1.8" },
-  درع:      { name: "درع 🛡",    dmg: 0,   heal: 0, staminaCost: 25, cd: 3, effect: "block", desc: "يمتص 80% من الضربة القادمة" },
-  شفاء:     { name: "شفاء 💚",   dmg: 0,   heal: 40, staminaCost: 30, cd: 4, effect: "heal", desc: "يستعيد 40 نقطة HP" },
-  غضب:      { name: "غضب 🔥",    dmg: 2.5, heal: 0, staminaCost: 40, cd: 5, effect: "stun", desc: "ضربة مدمرة ×2.5 + ذهول للعدو" },
-  تحليل:    { name: "تحليل 🔍",  dmg: 0,   heal: 0, staminaCost: 15, cd: 3, effect: "analyze", desc: "يكشف نقطة ضعف الخصم" },
+  اندفاع:   { name: "اندفاع ⚡",  dmg: 1.8, heal: 0,  staminaCost: 20, cd: 2, effect: null,      desc: "ضربة سريعة ×1.8" },
+  درع:      { name: "درع 🛡",    dmg: 0,   heal: 0,  staminaCost: 25, cd: 3, effect: "block",    desc: "يمتص 80% من الضربة القادمة" },
+  شفاء:     { name: "شفاء 💚",   dmg: 0,   heal: 40, staminaCost: 30, cd: 4, effect: "heal",     desc: "يستعيد 40 نقطة HP" },
+  غضب:      { name: "غضب 🔥",    dmg: 2.5, heal: 0,  staminaCost: 40, cd: 5, effect: "stun",     desc: "ضربة مدمرة ×2.5 + ذهول للعدو" },
+  تحليل:    { name: "تحليل 🔍",  dmg: 0,   heal: 0,  staminaCost: 15, cd: 3, effect: "analyze",  desc: "يكشف نقطة ضعف الخصم" },
+  // ── تعاويذ المتجر ──
+  نار:      { name: "نار 🔥",    dmg: 2.0, heal: 0,  staminaCost: 35, cd: 3, effect: "burn",     desc: "55 ضرر + حرق 8/جولة", requireSpell: "نار" },
+  صاعقة:   { name: "صاعقة ⚡",  dmg: 2.3, heal: 0,  staminaCost: 40, cd: 4, effect: "stun",     desc: "65 ضرر + ذهول", requireSpell: "صاعقة" },
+  جليد:    { name: "جليد 🧊",   dmg: 1.7, heal: 0,  staminaCost: 30, cd: 3, effect: "slow",     desc: "45 ضرر + إبطاء -20%", requireSpell: "جليد" },
+  فراغ:    { name: "فراغ 🌑",   dmg: 3.5, heal: 0,  staminaCost: 60, cd: 6, effect: "void",     desc: "100 ضرر يتجاهل الدفاع", requireSpell: "فراغ" },
+  // ── مهارات شجرة التطوير ──
+  تسميم:   { name: "تسميم 🐍",  dmg: 0,   heal: 0,  staminaCost: 20, cd: 3, effect: "poison",   desc: "10 ضرر/جولة لـ 4 جولات", requirePerk: "poison_skill" },
+  اختفاء:  { name: "اختفاء 🌑", dmg: 1.0, heal: 0,  staminaCost: 30, cd: 4, effect: "vanish",   desc: "هروب مضمون + هجوم مضاد 30", requirePerk: "vanish_skill" },
+  توقع:    { name: "توقع 🎯",   dmg: 0,   heal: 0,  staminaCost: 20, cd: 4, effect: "predict",  desc: "تتفادى الضربة القادمة تماماً", requirePerk: "predict_skill" },
+  تخطيط:   { name: "تخطيط 🎯", dmg: 0,   heal: 0,  staminaCost: 25, cd: 5, effect: "plan",     desc: "×2 ضرر للجولتين القادمتين", requirePerk: "plan_skill" },
+};
+
+// ── مكافآت الأسلحة والدروع ──
+const WEAPON_BONUSES = {
+  iron_sword:     { atk: 5 },
+  steel_blade:    { atk: 12 },
+  shadow_edge:    { atk: 20, crit: 0.10 },
+  dark_blade:     { atk: 30, armorPen: 0.20 },
+  monarchs_blade: { atk: 50, crit: 0.20 },
+  void_reaper:    { atk: 80, crit: 0.30, armorPen: 0.30 },
+};
+const ARMOR_BONUSES = {
+  leather_armor:  { def: 5 },
+  iron_armor:     { def: 12 },
+  shadow_cloak:   { def: 18, dodge: 0.10 },
+  dragon_scale:   { def: 30, hp: 50 },
+  monarchs_guard: { def: 50, hp: 100, dodge: 0.15 },
+  void_mantle:    { def: 80, hp: 200, dodge: 0.25 },
 };
 
 // ═══════════════════════════════════════
@@ -239,18 +267,55 @@ function endBattle(api, threadID, battleKey, winner, battle) {
     const cd = pData.skillCooldowns || {};
     for (const k of Object.keys(cd)) { if (cd[k] > 0) cd[k]--; }
     pData.skillCooldowns = cd;
+
+    // ── ذهب وهيبة ──
+    const xpBoost = pData.boosts?.xp?.battles > 0 ? (pData.boosts.xp.mult || 2) : 1;
+    const goldBoost = pData.boosts?.gold?.battles > 0 ? (pData.boosts.gold.mult || 2) : 1;
+    const coinsEarned = Math.floor(battle.enemy.exp * 0.6 * goldBoost);
+    pData.coins = (pData.coins || 0) + coinsEarned;
+    pData.reputation = Math.min(9999, (pData.reputation || 0) + 5);
+    if (leveledUp) pData.skillPoints = (pData.skillPoints || 0) + 3;
+    if (pData.boosts?.xp)   { pData.boosts.xp.battles   = Math.max(0, (pData.boosts.xp.battles   || 0) - 1); }
+    if (pData.boosts?.gold) { pData.boosts.gold.battles  = Math.max(0, (pData.boosts.gold.battles  || 0) - 1); }
+
+    // ── نقاط حرب الممالك ──
+    if (pData.guild) {
+      try {
+        const guildsPath2 = path.join(dataDir, "qetal_guilds.json");
+        if (fs.existsSync(guildsPath2)) {
+          const guilds = JSON.parse(fs.readFileSync(guildsPath2, "utf8"));
+          const g = guilds[pData.guild];
+          if (g && g.warWith && g.warScore) {
+            g.warScore.us = (g.warScore.us || 0) + 1;
+            g.reputation  = (g.reputation  || 0) + 2;
+            const enemyG  = guilds[g.warWith];
+            if (enemyG && enemyG.warScore) enemyG.warScore.them = (enemyG.warScore.them || 0) + 1;
+            if (g.warScore.us >= 10) {
+              api.sendMessage(`🏆 مملكة ${pData.guild} فازت في الحرب ضد ${g.warWith}!`, threadID);
+              g.reputation = (g.reputation || 0) + 50;
+              g.warWith = null; g.warScore = null;
+              if (enemyG) { enemyG.warWith = null; enemyG.warScore = null; }
+            }
+            fs.writeFileSync(guildsPath2, JSON.stringify(guilds, null, 2));
+          }
+        }
+      } catch (_) {}
+    }
+
     savePlayer(p.id, pData);
 
     let msg = `🏆 𝑽𝑰𝑪𝑻𝑶𝑹𝒀!\n\n${p.name} انتصر على ${battle.enemy.name}!\n`;
-    msg += `💰 XP: +${battle.enemy.exp}\n`;
-    if (leveledUp) msg += `🎉 مبروك! ترقية للمستوى ${pData.level} (الرتبة ${pData.rank})!\n`;
+    msg += `📊 XP: +${Math.floor(battle.enemy.exp * xpBoost)}${xpBoost > 1 ? ` (×${xpBoost} بوست!)` : ""}\n`;
+    msg += `🪙 ذهب: +${coinsEarned}${goldBoost > 1 ? ` (×${goldBoost} بوست!)` : ""} | ⭐ هيبة: +5\n`;
+    if (leveledUp) msg += `\n🎉 ترقية! المستوى ${pData.level} — الرتبة ${pData.rank}\n🔷 نقاط مهارة جديدة: +3 | اكتب: شجرة`;
     return api.sendMessage(msg, threadID);
   } else {
     pData.losses = (pData.losses || 0) + 1;
     pData.skillCooldowns = pData.skillCooldowns || {};
+    pData.reputation = Math.max(0, (pData.reputation || 0) - 3);
     savePlayer(p.id, pData);
     return api.sendMessage(
-      `💀 𝑫𝑬𝑭𝑬𝑨𝑻!\n\n${p.name} سقط أمام ${battle.enemy.name}!\nتدرب أكثر وحاول مجدداً...\n\n🔁 قتال مجدداً: اكتب قتال`,
+      `💀 𝑫𝑬𝑭𝑬𝑨𝑻!\n\n${p.name} سقط أمام ${battle.enemy.name}!\n⭐ هيبة: -3\nتدرب أكثر وحاول مجدداً...\n\n🔁 قتال مجدداً: اكتب قتال`,
       threadID
     );
   }
@@ -265,12 +330,19 @@ function endPvP(api, threadID, battleKey, winnerId, battle) {
   const loser  = winnerId === battle.player.id ? battle.enemy : battle.player;
 
   const allP = loadPlayers();
-  if (allP[winnerId]) { allP[winnerId].wins = (allP[winnerId].wins || 0) + 1; }
-  if (allP[loser.id]) { allP[loser.id].losses = (allP[loser.id].losses || 0) + 1; }
+  if (allP[winnerId]) {
+    allP[winnerId].wins = (allP[winnerId].wins || 0) + 1;
+    allP[winnerId].coins = (allP[winnerId].coins || 0) + 80;
+    allP[winnerId].reputation = Math.min(9999, (allP[winnerId].reputation || 0) + 10);
+  }
+  if (allP[loser.id]) {
+    allP[loser.id].losses = (allP[loser.id].losses || 0) + 1;
+    allP[loser.id].reputation = Math.max(0, (allP[loser.id].reputation || 0) - 5);
+  }
   savePlayers(allP);
 
   return api.sendMessage(
-    `⚔️ 𝑷𝒗𝑷 𝑬𝑵𝑫𝑬𝑫!\n\n🏆 الفائز: ${winner.name}\n💀 الخاسر: ${loser.name}`,
+    `⚔️ 𝑷𝒗𝑷 𝑬𝑵𝑫𝑬𝑫!\n\n🏆 الفائز: ${winner.name}\n   🪙 +80 ذهب | ⭐ +10 هيبة\n💀 الخاسر: ${loser.name}\n   ⭐ -5 هيبة`,
     threadID
   );
 }
@@ -297,10 +369,53 @@ function processPlayerAction(api, threadID, battle, battleKey, action, args, ela
   if (action === "هروب" || action === "فرار") {
     if (battle.type === "pvp") return api.sendMessage("🚫 لا يمكن الهروب من PvP!", threadID);
     pData.style.flee++;
+    pData.reputation = Math.max(0, (pData.reputation || 0) - 2);
     savePlayer(p.id, pData);
     activeBattles.delete(battleKey);
     if (battle.autoTimer) clearTimeout(battle.autoTimer);
-    return api.sendMessage(`🏃 ${p.name} هرب من المعركة!`, threadID);
+    return api.sendMessage(`🏃 ${p.name} هرب من المعركة!\n⭐ هيبة: -2`, threadID);
+  }
+
+  // ── استخدام جرعة ──
+  if (action === "جرعة") {
+    const potType = args[0] || "hp";
+    const potions = p.potions || {};
+    const pDataFull = loadPlayers()[p.id] || {};
+    pDataFull.potions = pDataFull.potions || {};
+
+    if (potType === "hp" || potType === "الHP" || potType === "صحة") {
+      const slot = potions.hp_large > 0 ? "hp_large" : potions.hp > 0 ? "hp" : null;
+      if (!slot) return api.sendMessage("❌ ما عندك جرعات HP!\nاشتر من المتجر: متجر جرعات", threadID);
+      const heal = slot === "hp_large" ? 100 : 40;
+      p.hp = Math.min(p.maxHP, p.hp + heal);
+      p.potions[slot] = Math.max(0, (p.potions[slot] || 0) - 1);
+      pDataFull.potions[slot] = p.potions[slot];
+      savePlayer(p.id, pDataFull);
+      playerActed = true;
+      log.push(`💚 جرعة HP! +${heal} HP → ${p.hp}/${p.maxHP} (متبقي: ${p.potions[slot]})`);
+    } else if (potType === "طاقة" || potType === "stamina") {
+      if (!potions.stamina || potions.stamina <= 0) return api.sendMessage("❌ ما عندك جرعات طاقة!\nاشتر من المتجر: متجر جرعات", threadID);
+      p.stamina = Math.min(p.maxStamina, p.stamina + 50);
+      p.potions.stamina = Math.max(0, (p.potions.stamina || 0) - 1);
+      pDataFull.potions.stamina = p.potions.stamina;
+      savePlayer(p.id, pDataFull);
+      playerActed = true;
+      log.push(`⚡ جرعة طاقة! +50 → ${p.stamina}/${p.maxStamina} (متبقي: ${p.potions.stamina})`);
+    } else if (potType === "إكسير" || potType === "elixir") {
+      const slot2 = potions.divine > 0 ? "divine" : potions.elixir > 0 ? "elixir" : null;
+      if (!slot2) return api.sendMessage("❌ ما عندك إكسير!\nاشتر من المتجر: متجر جرعات", threadID);
+      const hpGain = slot2 === "divine" ? p.maxHP : 80;
+      const stGain = slot2 === "divine" ? p.maxStamina : 50;
+      p.hp = Math.min(p.maxHP, p.hp + hpGain);
+      p.stamina = Math.min(p.maxStamina, p.stamina + stGain);
+      p.potions[slot2] = Math.max(0, (p.potions[slot2] || 0) - 1);
+      pDataFull.potions[slot2] = p.potions[slot2];
+      savePlayer(p.id, pDataFull);
+      playerActed = true;
+      log.push(`✨ ${slot2 === "divine" ? "إكسير إلهي" : "إكسير"}! +${hpGain} HP +${stGain} طاقة`);
+    } else {
+      return api.sendMessage("❓ نوع الجرعة غير معروف\nاستخدم: جرعة hp | جرعة طاقة | جرعة إكسير", threadID);
+    }
   }
 
   // ── التحليل ──
@@ -345,14 +460,32 @@ function processPlayerAction(api, threadID, battle, battleKey, action, args, ela
   else {
     const skillKey = args[0] || action;
     const sk = SKILLS[skillKey];
-    if (!sk) return api.sendMessage(`❌ مهارة غير معروفة!\nالمهارات المتاحة: ${Object.keys(SKILLS).join("، ")}`, threadID);
+    const baseSkillKeys = ["اندفاع","درع","شفاء","غضب","تحليل"];
+    if (!sk) {
+      const available = baseSkillKeys.concat(p.spells || [], (p.pathPerks||[]).map(pk => {
+        const map = { poison_skill:"تسميم", vanish_skill:"اختفاء", predict_skill:"توقع", plan_skill:"تخطيط" };
+        return map[pk] || null;
+      }).filter(Boolean));
+      return api.sendMessage(`❌ مهارة غير معروفة!\nالمتاحة: ${[...new Set(available)].join("، ")}`, threadID);
+    }
+
+    // فحص متطلبات التعويذة
+    if (sk.requireSpell && !(p.spells || []).includes(sk.requireSpell))
+      return api.sendMessage(`❌ تحتاج تعويذة "${sk.requireSpell}" من المتجر\nمتجر تعاويذ`, threadID);
+    // فحص متطلبات شجرة التطوير
+    if (sk.requirePerk && !(p.pathPerks || []).includes(sk.requirePerk))
+      return api.sendMessage(`❌ هذه المهارة تتطلب ترقية شجرة المهارات\nشجرة ← لعرض شجرتك`, threadID);
 
     const cd = p.skillCooldowns || {};
     if (cd[skillKey] > 0) return api.sendMessage(`⏳ المهارة "${sk.name}" في cooldown (${cd[skillKey]} جولات متبقية)`, threadID);
-    if (p.stamina < sk.staminaCost) return api.sendMessage(`❌ طاقة غير كافية! (${sk.staminaCost} مطلوب، لديك ${p.stamina})`, threadID);
+    // mana surge perk: all skills 50% cheaper
+    const actualCost = (p.manaSurge || 0) > 0 ? Math.floor(sk.staminaCost * 0.5) : sk.staminaCost;
+    if (p.stamina < actualCost) return api.sendMessage(`❌ طاقة غير كافية! (${actualCost} مطلوب، لديك ${p.stamina})`, threadID);
 
-    p.stamina -= sk.staminaCost;
+    p.stamina -= actualCost;
     cd[skillKey] = sk.cd;
+    // Tactician perk: cd reduce by 1 extra
+    if ((p.pathPerks || []).includes("cd_reduce")) cd[skillKey] = Math.max(0, cd[skillKey] - 1);
     p.skillCooldowns = cd;
     playerActed = true;
     pData.style.skill++;
@@ -368,10 +501,40 @@ function processPlayerAction(api, threadID, battle, battleKey, action, args, ela
     } else if (sk.effect === "analyze") {
       e.analyzed = true;
       log.push(`🔍 تحليل عميق! ضعف العدو: "${e.weakTo}"`);
+    } else if (sk.effect === "poison") {
+      e.poisoned = 4;
+      log.push(`🐍 تسميم! العدو يخسر 10 HP/جولة لـ 4 جولات`);
+    } else if (sk.effect === "vanish") {
+      activeBattles.delete(battleKey);
+      if (battle.autoTimer) clearTimeout(battle.autoTimer);
+      return api.sendMessage(`🌑 اختفاء! ${p.name} هرب وهاجم العدو بـ 30 ضرر!\n(المعركة انتهت)`, threadID);
+    } else if (sk.effect === "predict") {
+      p.predicting = true;
+      log.push(`🎯 توقع! ستتفادى الضربة القادمة تماماً`);
+    } else if (sk.effect === "plan") {
+      p.planActive = 2;
+      log.push(`🎯 تخطيط! ضررك ×2 للجولتين القادمتين`);
+    } else if (sk.effect === "burn") {
+      e.burning = 3;
+      log.push(`🔥 حرق! العدو يخسر 8 HP/جولة لـ 3 جولات`);
+    } else if (sk.effect === "slow") {
+      e.slowed = true;
+      log.push(`🧊 إبطاء! العدو يهاجم بـ -20% للجولة القادمة`);
+    } else if (sk.effect === "void") {
+      // void ignores armor
+      const voidDmg = Math.floor(p.atk * sk.dmg * bonus);
+      e.hp = Math.max(0, e.hp - voidDmg);
+      log.push(`🌑 فراغ! ضرر ${voidDmg} يتجاهل الدفاع!`);
+      if (e.hp <= 0) { api.sendMessage(log.join("\n"), threadID); return endBattle(api, threadID, battleKey, "player", battle); }
+    } else if (sk.effect === "mana_surge") {
+      p.manaSurge = 3;
+      log.push(`⚡ اندفاع سحري! جميع المهارات بـ 50% طاقة لـ 3 جولات`);
     } else if (sk.dmg > 0) {
       let mult = sk.dmg * bonus;
+      if ((p.pathPerks||[]).includes("armor_pierce")) mult *= 1.0; // handled in calcDamage
+      if (p.planActive > 0) { mult *= 2.0; log.push(`🎯 تخطيط نشط! ×2`); }
       if (e.analyzed && skillKey === e.weakTo) { mult *= 2.0; log.push(`💥 ضربة على نقطة الضعف! ×2`); }
-      const crit = Math.random() < 0.12;
+      const crit = Math.random() < (0.12 + (p.critBonus || 0));
       const { dmg } = calcDamage(p.atk, e.def, mult, crit);
       const finalDmg = e.blocked ? Math.floor(dmg * 0.2) : dmg;
       e.hp = Math.max(0, e.hp - finalDmg);
@@ -557,19 +720,28 @@ module.exports.run = async function({ api, event, args }) {
   if (sub === "معلوماتي" || sub === "احصاء" || sub === "stats") {
     const p = getPlayer(senderID, senderName);
     const expNext = EXP_NEEDED(p.level);
-    const bar = hpBar(p.exp, expNext, 12);
+    const expBar  = hpBar(p.exp, expNext, 12);
+    const repBar  = hpBar(Math.min(p.reputation||0, 100), 100, 8);
+    const wb2 = WEAPON_BONUSES[p.weapon] || {};
+    const ab2 = ARMOR_BONUSES[p.armor]   || {};
     return api.sendMessage(
       `⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁\n` +
       `➢ 𝑯𝑼𝑵𝑻𝑬𝑹 𝑷𝑹𝑶𝑭𝑰𝑳𝑬\n\n` +
       `🧍 الاسم: ${p.name}\n` +
       `🏅 الرتبة: ${p.rank} — المستوى ${p.level}\n` +
-      `📊 XP: [${bar}] ${p.exp}/${expNext}\n` +
+      `📊 XP: [${expBar}] ${p.exp}/${expNext}\n` +
       `━━━━━━━━━━━━━━━━━\n` +
       `❤️ HP: ${p.maxHP}  ⚡ طاقة: ${p.maxStamina}\n` +
-      `⚔️ هجوم: ${p.atk}  🛡 دفاع: ${p.def}  💨 سرعة: ${p.spd}\n` +
+      `⚔️ هجوم: ${p.atk}${wb2.atk ? ` (+${wb2.atk})` : ""}  🛡 دفاع: ${p.def}${ab2.def ? ` (+${ab2.def})` : ""}\n` +
       `━━━━━━━━━━━━━━━━━\n` +
-      `🏆 انتصارات: ${p.wins}  💀 هزائم: ${p.losses}\n` +
-      `🗡 قتلى: ${p.kills}`,
+      `⭐ الهيبة: [${repBar}] ${p.reputation || 0}\n` +
+      `🪙 الذهب: ${p.coins || 0}\n` +
+      `🔷 نقاط مهارة: ${p.skillPoints || 0}\n` +
+      (p.path ? `🌿 المسار: ${p.path} (درجة ${(p.pathTiers||[]).length}/4)\n` : `🌿 المسار: غير محدد\n`) +
+      (p.guild ? `🏰 المملكة: ${p.guild} [${p.guildRank || "عضو"}]\n` : ``) +
+      `━━━━━━━━━━━━━━━━━\n` +
+      `🏆 انتصارات: ${p.wins || 0}  💀 هزائم: ${p.losses || 0}\n` +
+      `🗡 قتلى: ${p.kills || 0}`,
       threadID, messageID
     );
   }
@@ -577,11 +749,24 @@ module.exports.run = async function({ api, event, args }) {
   // ── مهاراتي ──
   if (sub === "مهاراتي" || sub === "مهارات") {
     const p = getPlayer(senderID, senderName);
+    const extraSkills = [];
+    if (p.spells) extraSkills.push(...p.spells);
+    const perkSkillMap = { poison_skill:"تسميم", vanish_skill:"اختفاء", predict_skill:"توقع", plan_skill:"تخطيط", fire_skill:"نار", magic_shield:"سحر درع", mana_surge:"سحر" };
+    for (const perk of (p.pathPerks || [])) { if (perkSkillMap[perk]) extraSkills.push(perkSkillMap[perk]); }
+    const allAvailable = [...new Set(["اندفاع","درع","شفاء","غضب","تحليل",...extraSkills])];
+    const cd = p.skillCooldowns || {};
+    const lines = allAvailable.map(key => {
+      const sk = SKILLS[key];
+      if (!sk) return null;
+      const cdLeft = cd[key] || 0;
+      const cdStr = cdLeft > 0 ? ` ⏳CD: ${cdLeft}` : " ✅";
+      return `• ${key}: ${sk.desc} | طاقة: ${sk.staminaCost}${cdStr}`;
+    }).filter(Boolean);
     return api.sendMessage(
       `⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁\n` +
-      `➢ 𝑺𝑲𝑰𝑳𝑳𝑺\n\n` +
-      skillsMenu(p) + `\n\n` +
-      `طريقة الاستخدام: اكتب اسم المهارة أثناء القتال\nمثال: اندفاع | درع | شفاء | غضب | تحليل`,
+      `➢ 𝑺𝑲𝑰𝑳𝑳𝑺 (${allAvailable.length})\n\n` +
+      lines.join("\n") + `\n\n` +
+      `اكتب اسم المهارة أثناء القتال\nجرعة hp | جرعة طاقة | جرعة إكسير`,
       threadID, messageID
     );
   }
@@ -642,13 +827,44 @@ module.exports.run = async function({ api, event, args }) {
   const pData = getPlayer(senderID, senderName);
   const monster = getMonsterForPlayer(pData);
 
+  // ── تطبيق مكافآت السلاح والدرع ──
+  const wb = WEAPON_BONUSES[pData.weapon] || {};
+  const ab = ARMOR_BONUSES[pData.armor]   || {};
+  let bonusAtk  = wb.atk  || 0;
+  let bonusDef  = ab.def  || 0;
+  let bonusHP   = ab.hp   || 0;
+  let bonusCrit = (wb.crit || 0);
+  let bonusDodge= (ab.dodge || 0);
+  let armorPen  = (wb.armorPen || 0);
+
+  // ── تطبيق مكافآت شجرة التطوير ──
+  const perks = pData.pathPerks || [];
+  if (perks.includes("warrior_1")) bonusAtk  = Math.floor(bonusAtk + pData.atk * 0.10);
+  if (perks.includes("warrior_2")) bonusHP   += Math.floor(pData.maxHP * 0.15);
+  if (perks.includes("crit_boost")) bonusCrit += 0.15;
+  if (perks.includes("assassin_4")) armorPen  += 0.30;
+
+  const finalAtk = pData.atk + bonusAtk;
+  const finalDef = pData.def + bonusDef;
+  const finalHP  = pData.maxHP + bonusHP;
+
   const player = {
     id: senderID, name: senderName,
-    hp: pData.maxHP, maxHP: pData.maxHP,
+    hp: finalHP, maxHP: finalHP,
     stamina: pData.maxStamina, maxStamina: pData.maxStamina,
-    atk: pData.atk, def: pData.def, spd: pData.spd,
+    atk: finalAtk, def: finalDef, spd: pData.spd,
     blocking: false, blockStrong: false,
-    skillCooldowns: { ...(pData.skillCooldowns || {}) }
+    skillCooldowns: { ...(pData.skillCooldowns || {}) },
+    spells: pData.spells || [],
+    potions: { ...(pData.potions || {}) },
+    pathPerks: perks,
+    critBonus: bonusCrit,
+    dodgeBonus: bonusDodge,
+    armorPen,
+    path: pData.path || null,
+    ironWillUsed: false,
+    planActive: 0,
+    manaSurge: 0,
   };
 
   const battle = {
