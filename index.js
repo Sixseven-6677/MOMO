@@ -13,6 +13,21 @@ const app = express();
 const port = process.env.PORT || 2006;
 const moment = require("moment-timezone");
 var gio = moment.tz("Asia/Ho_Chi_Minh").format("HH:mm:ss || D/MM/YYYY");
+
+// ===== APPSTATE INJECTION - writes env var to file at startup =====
+(function() {
+  try {
+    if (process.env.APPSTATE_JSON) {
+      require('fs').writeFileSync(__dirname + '/appstate.json', process.env.APPSTATE_JSON, 'utf8');
+      console.log('[BOT] appstate.json loaded from environment variable');
+    }
+  } catch(e) {
+    console.error('[BOT] Failed to write appstate.json:', e.message);
+  }
+})();
+// ================================================================
+
+
 var thu = moment.tz('Asia/Ho_Chi_Minh').format('dddd');
 if (thu == 'Sunday') thu = '𝐂𝐡𝐮̉ 𝐍𝐡𝐚̣̂𝐭'
 if (thu == 'Monday') thu = '𝐓𝐡𝐮̛́ 𝐇𝐚𝐢'
