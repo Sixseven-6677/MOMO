@@ -542,7 +542,7 @@ module.exports.config = {
   credits: "XAVIER",
   description: "لعبة قتال Solo Leveling مع وحوش وPvP",
   commandCategory: "ألعاب",
-  usages: "قتال | قتال @شخص | معلوماتي | مهاراتي | ترتيب",
+  usages: "قتال | [رد على رسالة شخص] قتال | معلوماتي | مهاراتي | ترتيب",
   cooldowns: 0
 };
 
@@ -603,11 +603,18 @@ module.exports.run = async function({ api, event, args }) {
     );
   }
 
-  // ── PvP ──
-  const mentionedIDs = Object.keys(mentions || {});
-  if (mentionedIDs.length > 0) {
-    const targetID = mentionedIDs[0];
+  // ── PvP (بالرد على رسالة الشخص) ──
+  if (event.messageReply && event.messageReply.senderID) {
+    const targetID = String(event.messageReply.senderID);
     if (targetID === senderID) return api.sendMessage("❌ لا تقدر تتحدى نفسك!", threadID, messageID);
+    try { if (targetID === String(api.getCurrentUserID())) return api.sendMessage("❌ لا تقدر تتحدى البوت!", threadID, messageID); } catch (e) {}
+
+    if (activeBattles.has(`${threadID}_${senderID}`))
+      return api.sendMessage("⚔️ أنت في معركة! أنهها أولاً", threadID, messageID);
+
+    const existingChallenge = pvpChallenges.get(`${threadID}_${targetID}`);
+    if (existingChallenge)
+      return api.sendMessage(`⏳ ${existingChallenge.challengerName} تحدى هذا الشخص بالفعل، انتظر انتهاء التحدي`, threadID, messageID);
 
     let targetName = targetID;
     try { const info = await api.getUserInfo(targetID); targetName = info[targetID]?.name || targetID; } catch (e) {}
@@ -621,7 +628,7 @@ module.exports.run = async function({ api, event, args }) {
     setTimeout(() => pvpChallenges.delete(`${threadID}_${targetID}`), 60000);
 
     return api.sendMessage(
-      `⚔️ تحدي PvP!\n\n${senderName} يتحدى ${targetName}!\n\n${targetName}، اكتب:\n✅ قبول → تقبل التحدي\n❌ رفض → ترفض`,
+      `⚔️ تحدي PvP!\n\n⚡ ${senderName} يتحدى ${targetName}!\n\n${targetName}، اكتب:\n✅ قبول ← لقبول التحدي\n❌ رفض ← لرفض التحدي\n\n⏱ التحدي ينتهي خلال 60 ثانية`,
       threadID, messageID
     );
   }
