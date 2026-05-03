@@ -9,12 +9,6 @@
     "make",
     "g++",
     "build-essential",
-    "libsqlite3-dev",
-    "libpixman-1-dev",
-    "libcairo2-dev",
-    "libpango1.0-dev",
-    "libjpeg-dev",
-    "libgif-dev",
-    "libpng-dev"
+    "libsqlite3-dev"
   ]
 }
