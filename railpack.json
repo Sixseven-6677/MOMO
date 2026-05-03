@@ -10,5 +10,10 @@
     "g++",
     "build-essential",
     "libsqlite3-dev"
-  ]
+  ],
+  "install": {
+    "cmds": [
+      "npm install --legacy-peer-deps"
+    ]
+  }
 }
