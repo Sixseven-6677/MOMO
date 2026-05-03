@@ -1,8 +1,5 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "python3", "gnumake", "gcc", "pkg-config"]
-
-[phases.install]
-cmds = ["npm install", "cd lib/fca-auto && npm install --production"]
+nixPkgs = ["nodejs_20", "npm-9_x"]
 
 [variables]
 NIXPACKS_NODE_VERSION = "20"
