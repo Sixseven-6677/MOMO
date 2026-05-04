@@ -1,11 +1,37 @@
 const fs = require("fs");
 const path = require("path");
-const dataPath = path.join(__dirname, "cache/data.json");
+// مسار ملف حفظ الأدمن المضافين يدوياً (يبقى حتى بعد الإعادة)
+const adminsDataPath = path.join(__dirname, "data/admins.json");
 const configPath = path.join(process.cwd(), "config.json");
+
+function loadExtraAdmins() {
+  try {
+    if (fs.existsSync(adminsDataPath)) {
+      const data = JSON.parse(fs.readFileSync(adminsDataPath, "utf8"));
+      return Array.isArray(data.extra) ? data.extra : [];
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveExtraAdmins(list) {
+  let data = {};
+  try {
+    if (fs.existsSync(adminsDataPath)) data = JSON.parse(fs.readFileSync(adminsDataPath, "utf8"));
+  } catch (e) {}
+  data.extra = list;
+  fs.writeFileSync(adminsDataPath, JSON.stringify(data, null, 2), "utf8");
+}
+
+function getAllAdmins() {
+  const base = global.config.ADMINBOT || [];
+  const extra = loadExtraAdmins();
+  return [...new Set([...base, ...extra])];
+}
 
 module.exports.config = {
   name: "ادمن",
-  version: "3.0.0",
+  version: "4.0.0",
   hasPermssion: 0,
   credits: "XAVIER",
   description: "تحكم بصلاحيات البوت وقائمة الأدمن",
@@ -17,13 +43,15 @@ module.exports.config = {
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID, senderID } = event;
 
-  const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-  const adminIDs = config.ADMINBOT || [];
+  const allAdmins = getAllAdmins();
+  // دمج مع global.config.ADMINBOT في كل مرة
+  global.config.ADMINBOT = allAdmins;
 
-  if (!adminIDs.includes(String(senderID))) {
+  if (!allAdmins.includes(String(senderID))) {
     return api.sendMessage("❌ هذا الأمر لأدمن البوت فقط", threadID, messageID);
   }
 
+  const dataPath = path.join(__dirname, "cache/data.json");
   const subCmd = args[0];
 
   if (subCmd === "فقط") {
@@ -62,14 +90,19 @@ module.exports.run = async function({ api, event, args }) {
         threadID, messageID
       );
     }
-    if (adminIDs.includes(newID)) {
+    if (allAdmins.includes(newID)) {
       return api.sendMessage("⚠️ هذا الـ ID موجود بالفعل في قائمة الأدمن", threadID, messageID);
     }
-    config.ADMINBOT.push(newID);
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 4));
-    global.config.ADMINBOT = config.ADMINBOT;
+
+    const extra = loadExtraAdmins();
+    extra.push(newID);
+    saveExtraAdmins(extra);
+
+    // تحديث فوري في الذاكرة
+    global.config.ADMINBOT = getAllAdmins();
+
     return api.sendMessage(
-      `✅ تم إضافة الأدمن الجديد\nID: ${newID}\nعدد الأدمن الآن: ${config.ADMINBOT.length}`,
+      `✅ تم إضافة الأدمن الجديد\nID: ${newID}\nعدد الأدمن الآن: ${global.config.ADMINBOT.length}\n\n⚠️ الأدمن محفوظ بشكل دائم`,
       threadID, messageID
     );
   }
@@ -84,21 +117,32 @@ module.exports.run = async function({ api, event, args }) {
     }
 
     const index = parseInt(input) - 1;
-    if (index < 0 || index >= adminIDs.length) {
+    if (index < 0 || index >= allAdmins.length) {
       return api.sendMessage(
-        `❌ الرقم غير صحيح، القائمة تحتوي على ${adminIDs.length} أدمن`,
+        `❌ الرقم غير صحيح، القائمة تحتوي على ${allAdmins.length} أدمن`,
         threadID, messageID
       );
     }
 
-    const removeID = adminIDs[index];
+    const removeID = allAdmins[index];
     if (removeID === String(senderID)) {
       return api.sendMessage("❌ لا تقدر تزيل نفسك من الأدمن", threadID, messageID);
     }
 
-    config.ADMINBOT = config.ADMINBOT.filter(id => id !== removeID);
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 4));
-    global.config.ADMINBOT = config.ADMINBOT;
+    // إزالة من الـ extra فقط (الأدمن الأساسيين في config.json لا يمكن إزالتهم)
+    const baseAdmins = global.config.ADMINBOT.filter(id =>
+      !(loadExtraAdmins().includes(id))
+    );
+    if (baseAdmins.includes(removeID)) {
+      return api.sendMessage(
+        "❌ لا تقدر تزيل أدمن أساسي من config.json",
+        threadID, messageID
+      );
+    }
+
+    const extra = loadExtraAdmins().filter(id => id !== removeID);
+    saveExtraAdmins(extra);
+    global.config.ADMINBOT = getAllAdmins();
 
     let name = removeID;
     try {
@@ -107,7 +151,7 @@ module.exports.run = async function({ api, event, args }) {
     } catch (e) {}
 
     return api.sendMessage(
-      `✅ تم إزالة الأدمن رقم ${index + 1}\nالاسم: ${name}\nID: ${removeID}\nعدد الأدمن الآن: ${config.ADMINBOT.length}`,
+      `✅ تم إزالة الأدمن\nالاسم: ${name}\nID: ${removeID}\nعدد الأدمن الآن: ${global.config.ADMINBOT.length}`,
       threadID, messageID
     );
   }
@@ -116,8 +160,8 @@ module.exports.run = async function({ api, event, args }) {
     `📋 أوامر الأدمن:\n\n` +
     `ادمن فقط ← البوت يرد على الأدمن فقط\n` +
     `ادمن الكل ← البوت يرد على الجميع\n` +
-    `ادمن تحديث [ID] ← إضافة أدمن جديد\n` +
-    `ادمن ازالة [ID] ← إزالة أدمن من القائمة`,
+    `ادمن تحديث [ID] ← إضافة أدمن جديد (يُحفظ)\n` +
+    `ادمن ازالة [رقم] ← إزالة أدمن من القائمة`,
     threadID, messageID
   );
 };
