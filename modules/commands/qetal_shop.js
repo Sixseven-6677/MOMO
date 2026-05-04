@@ -87,7 +87,7 @@ module.exports.config = {
   name: "متجر",
   version: "1.0.0",
   hasPermssion: 0,
-  credits: "XAVIER",
+  credits: "MOMO",
   description: "متجر اللعبة — أسلحة، دروع، جرعات، تعاويذ",
   commandCategory: "ألعاب",
   usages: "متجر | متجر أسلحة | متجر دروع | متجر جرعات | متجر تعاويذ | متجر شراء [كود] | متجر تجهيز [كود] | متجر ترقية [كود]",
