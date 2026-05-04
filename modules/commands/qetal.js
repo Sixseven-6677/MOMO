@@ -164,14 +164,15 @@ function battleStatus(battle) {
   const pBar = hpBar(p.hp, p.maxHP);
   const eBar = hpBar(e.hp, e.maxHP);
   return (
-    `⚔️ 𝑯𝑼𝑵𝑻𝑬𝑹 𝑩𝑨𝑻𝑻𝑳𝑬 — الجولة ${battle.turn}\n` +
+    `⚔️ ${battle.type === 'pvp' ? '𝑷𝒗𝑷' : '𝑯𝑼𝑵𝑻𝑬𝑹 𝑩𝑨𝑻𝑻𝑳𝑬'} — الجولة ${battle.turn}\n` +
     `━━━━━━━━━━━━━━━━━\n` +
     `🧍 ${p.name}\n` +
     `❤️ [${pBar}] ${p.hp}/${p.maxHP}\n` +
     `⚡ طاقة: ${p.stamina}/${p.maxStamina}\n` +
     `━━━━━━━━━━━━━━━━━\n` +
-    `👹 ${e.name}\n` +
+    `${battle.type === 'pvp' ? '🧍' : '👹'} ${e.name}\n` +
     `❤️ [${eBar}] ${e.hp}/${e.maxHP}\n` +
+    (battle.type === 'pvp' ? `⚡ طاقة: ${e.stamina}/${e.maxStamina}\n` : '') +
     (e.analyzed ? `🔍 الضعف: ${e.weakTo}\n` : ``)
   );
 }
@@ -184,6 +185,24 @@ function skillsMenu(player) {
     return `• ${key}: ${sk.desc} | طاقة: ${sk.staminaCost}${cdStr}`;
   });
   return lines.join("\n");
+}
+
+
+function pvpSkillsMenu(player, battle) {
+  const pData = (() => { try { return loadPlayers()[player.id] || {}; } catch(e) { return {}; } })();
+  const spells = pData.spells || [];
+  const pathPerks = pData.pathPerks || [];
+  const cd = player.skillCooldowns || {};
+  const available = [];
+  for (const [key, sk] of Object.entries(SKILLS)) {
+    if (sk.requireSpell && !spells.includes(sk.requireSpell)) continue;
+    if (sk.requirePerk  && !pathPerks.includes(sk.requirePerk))   continue;
+    const cdLeft = cd[key] || 0;
+    const stOk = player.stamina >= sk.staminaCost;
+    const cdStr = cdLeft > 0 ? `(CD:${cdLeft})` : (stOk ? '✅' : '🔴');
+    available.push(`• ${key} ${cdStr} — ${sk.desc} | طاقة:${sk.staminaCost}`);
+  }
+  return available.length ? available.join('\n') : 'ضرب | دفاع';
 }
 
 // ═══════════════════════════════════════
@@ -683,7 +702,7 @@ function processPvPAction(api, threadID, battle, battleKey, action, args, elapse
 
   log.push(`\n${battleStatus(battle)}`);
   const nextActor = battle.currentActor === battle.player.id ? battle.player : battle.enemy;
-  log.push(`🎯 دور: ${nextActor.name}\nأوامر: ضرب | دفاع | [مهارة]`);
+  log.push(`🎯 دور: ${nextActor.name}\n━━━━━━━━━━━━━━━━━\nالمهارات المتاحة:\n${pvpSkillsMenu(nextActor, battle)}`);
   api.sendMessage(log.join("\n"), threadID);
 
   if (battle.autoTimer) clearTimeout(battle.autoTimer);
@@ -702,7 +721,7 @@ module.exports.config = {
   name: "قتال",
   version: "1.0.0",
   hasPermssion: 0,
-  credits: "XAVIER",
+  credits: "MOMO",
   description: "لعبة قتال Solo Leveling مع وحوش وPvP",
   commandCategory: "ألعاب",
   usages: "قتال | [رد على رسالة شخص] قتال | معلوماتي | مهاراتي | ترتيب",
