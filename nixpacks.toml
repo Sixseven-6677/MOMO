@@ -1,8 +1,9 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "npm-9_x", "python3", "gcc", "gnumake"]
+nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
 
 [phases.install]
 cmds = ["npm install --legacy-peer-deps"]
 
 [variables]
 NIXPACKS_NODE_VERSION = "20"
+
