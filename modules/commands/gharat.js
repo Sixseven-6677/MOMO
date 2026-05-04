@@ -5,6 +5,8 @@ const dataDir = path.join(__dirname, "data");
 const playersPath = path.join(dataDir, "qetal_players.json");
 
 const gharatBattles = global.gharatBattles || (global.gharatBattles = new Map());
+const gharatCooldowns = global.gharatCooldowns || (global.gharatCooldowns = new Map());
+const RAID_COOLDOWN_MS = 3 * 60 * 1000; // 3 دقائق بين كل غارة
 
 const battlesFilePath = path.join(dataDir, 'gharat_battles.json');
 
@@ -103,14 +105,18 @@ const RAID_BOSSES = {
   ],
 };
 
+// ── معادلة الرتبة الجديدة ──
+// اللاعب E → بوابة D (دائماً رتبة أعلى من اللاعب)
+// rankDelta من الصعوبة يُضاف فوق الرتبة الأعلى
 function getRaidRank(playerRank, rankDelta) {
   const idx = RANKS.indexOf(playerRank);
-  return RANKS[Math.min(RANKS.length - 1, idx + rankDelta)];
+  // البداية دائماً +1 فوق رتبة اللاعب، ثم نضيف صعوبة إضافية
+  return RANKS[Math.min(RANKS.length - 1, idx + 1 + rankDelta)];
 }
 
 function createWaveEnemy(playerRank, rankDelta, statMult, wave) {
   const targetRank = getRaidRank(playerRank, rankDelta);
-  const pool = RAID_BOSSES[targetRank] || RAID_BOSSES["E"];
+  const pool = RAID_BOSSES[targetRank] || RAID_BOSSES["D"];
   const base = pool[Math.floor(Math.random() * pool.length)];
   const waveScale = 1 + (wave - 1) * 0.35;
   return {
@@ -142,7 +148,7 @@ function raidStatus(battle) {
     `❤️ [${hpBar(p.hp, p.maxHP)}] ${p.hp}/${p.maxHP}\n` +
     `⚡ طاقة: ${p.stamina}/${p.maxStamina}\n` +
     `━━━━━━━━━━━━━━━━━\n` +
-    `👹 ${e.name}\n` +
+    `👹 ${e.name} [رتبة ${e.rank}]\n` +
     `❤️ [${hpBar(e.hp, e.maxHP)}] ${e.hp}/${e.maxHP}`
   );
 }
@@ -188,10 +194,9 @@ function processRaidAction(api, threadID, battle, battleKey, action) {
     e.hp = Math.max(0, e.hp - finalDmg);
     log.push(`⚔️ ${p.name} يهاجم${crit ? " (حرجي! 💥)" : ""}! ضرر: ${finalDmg}`);
   } else {
-    return api.sendMessage(`❓ أوامر الغارة:\nضرب | اندفاع (×1.8) | دفاع | شفاء (−30 طاقة) | هروب`, threadID);
+    return api.sendMessage(`❓ أوامر الغارة:\nضرب | اندفاع (×1.8) | دفاع | شفاء (-30 طاقة) | هروب`, threadID);
   }
 
-  // Enemy turn (if alive)
   if (e.hp > 0 && !e.stunned) {
     const r = Math.random();
     let eMult = r < 0.7 ? 1.0 : r < 0.9 ? 1.3 : 1.8;
@@ -211,35 +216,35 @@ function processRaidAction(api, threadID, battle, battleKey, action) {
     log.push(`😵 ${e.name} مذهول، يفقد دوره!`);
   }
 
-  // Stamina recovery
   p.stamina = Math.min(p.maxStamina, p.stamina + 12);
 
-  // Check player death
   if (p.hp <= 0) {
     gharatBattles.delete(battleKey);
     saveBattles();
     if (battle.autoTimer) clearTimeout(battle.autoTimer);
+    // تطبيق كولداون حتى بعد الخسارة
+    gharatCooldowns.set(p.id, Date.now());
     const pData = loadPlayers()[p.id] || {};
     pData.losses = (pData.losses || 0) + 1;
     pData.reputation = Math.max(0, (pData.reputation || 0) - 2);
     savePlayer(p.id, pData);
     return api.sendMessage(
-      `${log.join("\n")}\n\n💀 سقطت في الغارة!\n⭐ هيبة: -2\nحاول مجدداً بعد التدريب`,
+      `${log.join("\n")}\n\n💀 سقطت في الغارة!\n⭐ هيبة: -2\n\n⏳ انتظر 3 دقائق قبل غارة جديدة`,
       threadID
     );
   }
 
-  // Check enemy death
   if (e.hp <= 0) {
     battle.rewards.xp += e.exp;
     battle.rewards.gold += Math.floor(e.exp * 0.6);
     battle.rewards.rep += 3;
 
     if (battle.wave >= battle.totalWaves) {
-      // Raid complete!
       gharatBattles.delete(battleKey);
       saveBattles();
       if (battle.autoTimer) clearTimeout(battle.autoTimer);
+      // تطبيق كولداون بعد الغارة
+      gharatCooldowns.set(p.id, Date.now());
 
       const diff = DIFFICULTIES[battle.difficulty] || DIFFICULTIES["عادي"];
       const totalXP   = Math.floor(battle.rewards.xp   * diff.rewardMult);
@@ -274,10 +279,10 @@ function processRaidAction(api, threadID, battle, battleKey, action) {
       msg += `📊 XP: +${totalXP}\n`;
       msg += `🪙 ذهب: +${totalGold}\n`;
       msg += `⭐ هيبة: +${totalRep}\n`;
-      if (leveledUp) msg += `\n🎉 ترقية! المستوى ${pData.level} — الرتبة ${pData.rank}\n🔷 نقاط مهارة: +3 | اكتب: شجرة`;
+      msg += `⏳ المهلة: 3 دقائق للغارة القادمة\n`;
+      if (leveledUp) msg += `\n🎉 ترقية! المستوى ${pData.level} — الرتبة ${pData.rank}\n🔷 نقاط مهارة: +3`;
       return api.sendMessage(msg, threadID);
     } else {
-      // Next wave
       battle.wave++;
       battle.enemy = createWaveEnemy(p.originalRank, DIFFICULTIES[battle.difficulty].rankDelta, DIFFICULTIES[battle.difficulty].statMult, battle.wave);
 
@@ -303,7 +308,6 @@ function processRaidAction(api, threadID, battle, battleKey, action) {
     }
   }
 
-  // Continue current wave
   log.push(`\n${raidStatus(battle)}`);
   log.push(`\n⏱ 30 ثانية للرد\nأوامر: ضرب | اندفاع | دفاع | شفاء | هروب`);
   api.sendMessage(log.join("\n"), threadID);
@@ -320,10 +324,10 @@ function processRaidAction(api, threadID, battle, battleKey, action) {
 
 module.exports.config = {
   name: "غارة",
-  version: "1.0.0",
+  version: "2.0.0",
   hasPermssion: 0,
-  credits: "XAVIER",
-  description: "نظام الغارات العشوائية — 3 موجات من الوحوش بصعوبات مختلفة",
+  credits: "MOMO",
+  description: "نظام الغارات — بوابات أصعب من رتبتك دائماً، 3 موجات",
   commandCategory: "ألعاب",
   usages: "غارة | غارة عادي | غارة صعب | غارة صعب جداً | غارة مستحيل",
   cooldowns: 5
@@ -335,6 +339,21 @@ module.exports.run = async function({ api, event, args }) {
 
   if (gharatBattles.has(battleKey)) {
     return api.sendMessage("⚔️ أنت في غارة! أنهها أولاً\nأوامر: ضرب | اندفاع | دفاع | شفاء | هروب", threadID, messageID);
+  }
+
+  // فحص المهلة بين الغارات
+  const lastRaid = gharatCooldowns.get(senderID);
+  if (lastRaid) {
+    const elapsed = Date.now() - lastRaid;
+    if (elapsed < RAID_COOLDOWN_MS) {
+      const remaining = Math.ceil((RAID_COOLDOWN_MS - elapsed) / 1000);
+      const mins = Math.floor(remaining / 60);
+      const secs = remaining % 60;
+      return api.sendMessage(
+        `⏳ انتظر قبل الغارة القادمة!\nالوقت المتبقي: ${mins}:${secs.toString().padStart(2, "0")}`,
+        threadID, messageID
+      );
+    }
   }
 
   let difficulty = args.length > 0 ? args.join(" ").trim() : null;
@@ -396,6 +415,7 @@ module.exports.run = async function({ api, event, args }) {
     `🎯 الصعوبة: ${diff.label}\n` +
     `💰 مكافأة: ×${diff.rewardMult}\n` +
     `🌊 الموجات: ${diff.waves}\n` +
+    `⚠️ الأعداء أقوى من رتبتك!\n` +
     `━━━━━━━━━━━━━━━━━\n` +
     `${raidStatus(battle)}\n` +
     `━━━━━━━━━━━━━━━━━\n` +
