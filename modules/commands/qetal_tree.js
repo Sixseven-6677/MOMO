@@ -89,7 +89,7 @@ module.exports.config = {
   name: "شجرة",
   version: "1.0.0",
   hasPermssion: 0,
-  credits: "XAVIER",
+  credits: "MOMO",
   description: "شجرة تطوير المهارات — اختر مسارك وطور قدراتك",
   commandCategory: "ألعاب",
   usages: "شجرة | شجرة مسار [محارب/اغتيال/ساحر/تكتيكي] | شجرة ترقية [رقم]",
