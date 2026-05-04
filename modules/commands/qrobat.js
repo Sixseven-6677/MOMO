@@ -15,10 +15,10 @@ function saveDisabled(list) {
 
 module.exports.config = {
   name: "قروبات",
-  version: "2.0.0",
+  version: "3.0.0",
   hasPermssion: 0,
   credits: "XAVIER",
-  description: "قائمة القروبات التي يوجد فيها البوت مع التحكم بكل قروب",
+  description: "قائمة القروبات الحالية للبوت مع التحكم بكل قروب",
   commandCategory: "أوامر",
   usages: "قروبات | قروبات تعطيل [رقم] | قروبات تفعيل [رقم] | قروبات اضافة [رقم]",
   cooldowns: 0
@@ -32,49 +32,65 @@ module.exports.run = async function({ api, event, args }) {
     return api.sendMessage("❌ هذا الأمر لأدمن البوت فقط", threadID, messageID);
   }
 
-  const allThreads = [...(global.data.allThreadID || [])];
   const disabled = getDisabled();
 
   if (!args[0] || args[0] === "لستة") {
-    if (allThreads.length === 0)
-      return api.sendMessage("ما في قروبات مسجلة حالياً", threadID, messageID);
+    // جلب القروبات الحالية من API مباشرة (لحظي)
+    let currentThreads = [];
+    try {
+      const threadList = await api.getThreadList(100, null, ["INBOX"]);
+      currentThreads = threadList.filter(t => t.isGroup);
+    } catch (e) {
+      // fallback to global data if API fails
+      currentThreads = [...(global.data.allThreadID || [])].map(id => ({ threadID: id, name: null }));
+    }
+
+    if (currentThreads.length === 0)
+      return api.sendMessage("ما في قروبات حالياً", threadID, messageID);
 
     let lines = [];
     let i = 1;
-    for (const tid of allThreads) {
-      let name = tid;
-      try {
-        const info = (global.data.threadInfo && global.data.threadInfo.get(tid)) || await api.getThreadInfo(tid);
-        name = info.threadName || `قروب ${tid}`;
-      } catch (e) {}
-      const status = disabled.includes(tid) ? "🔴 معطّل" : "🟢 مفعّل";
+    for (const t of currentThreads) {
+      const tid = t.threadID || t;
+      let name = t.name || t.threadName || tid;
+      if (!name || name === tid) {
+        try {
+          const info = global.data.threadInfo?.get(String(tid)) || await api.getThreadInfo(tid);
+          name = info.threadName || `قروب ${tid}`;
+        } catch (e) { name = `قروب ${tid}`; }
+      }
+      const status = disabled.includes(String(tid)) ? "🔴 معطّل" : "🟢 مفعّل";
       lines.push(`${i}. ${name}\n   ${status}`);
       i++;
     }
 
+    // حفظ القائمة الحالية مؤقتاً للأوامر التالية
+    global._currentThreads = currentThreads;
+
     return api.sendMessage(
-      `⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁\n` +
-      `➢︱ 𝑿𝑨𝑽𝑰𝑬𝑹 ᚔ 𝑮𝑹𝑶𝑼𝑷𝑺 ︱⚕\n` +
-      `⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁\n\n` +
-      lines.join("\n\n") +
-      `\n\n⧺ إجمالي القروبات: ${allThreads.length} ⧺`,
+      `📋 قروبات البوت الحالية (${currentThreads.length})\n\n` +
+      lines.join("\n\n"),
       threadID, messageID
     );
   }
 
+  // استخدم القائمة المؤقتة أو allThreadID كـ fallback
+  const allThreads = (global._currentThreads || []).map(t => t.threadID || t);
+  const fallback = allThreads.length > 0 ? allThreads : [...(global.data.allThreadID || [])];
+
   if (args[0] === "تعطيل" || args[0] === "تفعيل") {
     const num = parseInt(args[1]);
-    if (isNaN(num) || num < 1 || num > allThreads.length) {
+    if (isNaN(num) || num < 1 || num > fallback.length) {
       return api.sendMessage(
-        `❌ رقم غير صحيح، البوت في ${allThreads.length} قروب`,
+        `❌ رقم غير صحيح، اكتب قروبات أولاً لتحديث القائمة`,
         threadID, messageID
       );
     }
 
-    const targetThread = allThreads[num - 1];
+    const targetThread = String(fallback[num - 1]);
     let name = targetThread;
     try {
-      const info = (global.data.threadInfo && global.data.threadInfo.get(targetThread)) || await api.getThreadInfo(targetThread);
+      const info = global.data.threadInfo?.get(targetThread) || await api.getThreadInfo(targetThread);
       name = info.threadName || targetThread;
     } catch (e) {}
 
@@ -83,7 +99,7 @@ module.exports.run = async function({ api, event, args }) {
       saveDisabled(disabled);
       if (global.data.threadBanned) global.data.threadBanned.set(targetThread, { reason: "معطّل من الأدمن", dateAdded: new Date().toLocaleString() });
       return api.sendMessage(
-        `🔴 تم تعطيل البوت في:\n${name}\nالبوت لن يرد في هذا القروب\n\nللتفعيل: قروبات تفعيل ${num}`,
+        `🔴 تم تعطيل البوت في:\n${name}\nللتفعيل: قروبات تفعيل ${num}`,
         threadID, messageID
       );
     }
@@ -93,38 +109,34 @@ module.exports.run = async function({ api, event, args }) {
       saveDisabled(updated);
       if (global.data.threadBanned) global.data.threadBanned.delete(targetThread);
       return api.sendMessage(
-        `🟢 تم تفعيل البوت في:\n${name}\nالبوت يرد الآن في هذا القروب`,
+        `🟢 تم تفعيل البوت في:\n${name}`,
         threadID, messageID
       );
     }
   }
 
-  // ── اضافة {رقم} — يضيف أدمن الحساب للقروب المطلوب ──
   if (args[0] === "اضافة") {
     const num = parseInt(args[1]);
-    if (isNaN(num) || num < 1 || num > allThreads.length) {
+    if (isNaN(num) || num < 1 || num > fallback.length) {
       return api.sendMessage(
-        `❌ رقم غير صحيح، البوت في ${allThreads.length} قروب\nمثال: قروبات اضافة 3`,
+        `❌ رقم غير صحيح، اكتب قروبات أولاً لتحديث القائمة`,
         threadID, messageID
       );
     }
 
-    const targetThread = allThreads[num - 1];
+    const targetThread = fallback[num - 1];
     let name = targetThread;
     try {
-      const info = (global.data.threadInfo && global.data.threadInfo.get(targetThread)) || await api.getThreadInfo(targetThread);
+      const info = global.data.threadInfo?.get(String(targetThread)) || await api.getThreadInfo(targetThread);
       name = info.threadName || targetThread;
     } catch (e) {}
 
     try {
       await api.addUserToGroup(senderID, targetThread);
-      return api.sendMessage(
-        `✅ تم إضافتك بنجاح إلى:\n${name}`,
-        threadID, messageID
-      );
+      return api.sendMessage(`✅ تم إضافتك بنجاح إلى:\n${name}`, threadID, messageID);
     } catch (e) {
       return api.sendMessage(
-        `❌ فشل الإضافة إلى: ${name}\nقد لا يسمح البوت بإضافة أعضاء في هذا القروب`,
+        `❌ فشل الإضافة إلى: ${name}`,
         threadID, messageID
       );
     }
@@ -132,10 +144,10 @@ module.exports.run = async function({ api, event, args }) {
 
   return api.sendMessage(
     `📋 أوامر القروبات:\n\n` +
-    `قروبات ← عرض جميع القروبات وحالتها\n` +
+    `قروبات ← عرض القروبات الحالية\n` +
     `قروبات تعطيل [رقم] ← البوت لا يرد في هذا القروب\n` +
     `قروبات تفعيل [رقم] ← البوت يرد في هذا القروب\n` +
-    `قروبات اضافة [رقم] ← يضيفك للقروب المطلوب فوراً`,
+    `قروبات اضافة [رقم] ← يضيفك للقروب فوراً`,
     threadID, messageID
   );
 };
