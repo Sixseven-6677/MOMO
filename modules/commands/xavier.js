@@ -7,7 +7,7 @@ const xavierRecent = global.xavierRecent || (global.xavierRecent = new Map());
 
 const msgPath = path.join(__dirname, "cache/xavier_msg.txt");
 
-const defaultMessage = `🤖 ردٌّ تلقائي\nأنا هنا، تفضل بالتحدث\nللإيقاف: خافير توقف`;
+const defaultMessage = `🤖 ردٌّ تلقائي\nأنا هنا، تفضل بالتحدث\nللإيقاف: توسيع توقف`;
 
 function getMessage() {
   try {
@@ -73,13 +73,13 @@ function enqueueReply(api, threadID, messageID) {
 }
 
 module.exports.config = {
-  name: "خافير",
+  name: "توسيع",
   version: "3.2.0",
   hasPermssion: 0,
   credits: "XAVIER",
   description: "Auto Reply: يرد على كل رسالة بعد المدة المحددة",
   commandCategory: "أوامر",
-  usages: "خافير | خافير توقف",
+  usages: "توسيع | توسيع توقف",
   cooldowns: 0
 };
 
@@ -88,7 +88,7 @@ async function activate(api, threadID, messageID) {
   clearQueue(threadID);
   const ms = getInterval();
   return api.sendMessage(
-    `✅ تم تفعيل الرد التلقائي\nسيرد البوت على كل رسالة بعد ${ms / 1000} ثانية\nللإيقاف: خافير توقف`,
+    `✅ تم تفعيل الرد التلقائي\nسيرد البوت على كل رسالة بعد ${ms / 1000} ثانية\nللإيقاف: توسيع توقف`,
     threadID, messageID
   );
 }
