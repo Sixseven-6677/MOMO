@@ -4,7 +4,7 @@ module.exports.config = {
   name: "اسم",
   version: "3.1.0",
   hasPermssion: 0,
-  credits: "XAVIER",
+  credits: "MOMO",
   description: "تغيير اسم الكروب مع الحماية من التغيير",
   commandCategory: "أوامر",
   usages: "اسم [الاسم] | اسم توقف | اسم حماية | اسم حماية لا",
