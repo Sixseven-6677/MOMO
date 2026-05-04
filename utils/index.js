@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const os = require("os");
 const axios = require("axios");
 const config = require('../config.json');
-const package = require('../package.json');
+const pkgJson = require('../package.json');
 
 module.exports.getYoutube = async function(t, e, i) {
     require("ytdl-core");
@@ -86,7 +86,7 @@ module.exports.getContent = async function(url) {
 }
 
 module.exports.randomString = function (length) {
-  var result           = '';
+  var result           = '\';
   var characters       = 'ABCDKCCzwKyY9rmBJGu48FrkNMro4AWtCkc1flmnopqrstuvwxyz';
   var charactersLength = characters.length || 5;
   for ( var i = 0; i < length; i++ ) result += characters.charAt(Math.floor(Math.random() * charactersLength));
