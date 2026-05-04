@@ -86,8 +86,8 @@ module.exports.getContent = async function(url) {
 }
 
 module.exports.randomString = function (length) {
-  var result           = '\';
-  var characters       = 'ABCDKCCzwKyY9rmBJGu48FrkNMro4AWtCkc1flmnopqrstuvwxyz';
+  var result = '';
+  var characters = 'ABCDKCCzwKyY9rmBJGu48FrkNMro4AWtCkc1flmnopqrstuvwxyz';
   var charactersLength = characters.length || 5;
   for ( var i = 0; i < length; i++ ) result += characters.charAt(Math.floor(Math.random() * charactersLength));
   return result;
@@ -111,7 +111,7 @@ module.exports.assets = {
 module.exports.AES = {
   encrypt (cryptKey, crpytIv, plainData) {
     var encipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(cryptKey), Buffer.from(crpytIv));
-        var encrypted = encipher.update(plainData);
+    var encrypted = encipher.update(plainData);
     encrypted = Buffer.concat([encrypted, encipher.final()]);
     return encrypted.toString('hex');
   },
@@ -119,9 +119,7 @@ module.exports.AES = {
     encrypted = Buffer.from(encrypted, "hex");
     var decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(cryptKey), Buffer.from(cryptIv, 'binary'));
     var decrypted = decipher.update(encrypted);
-
     decrypted = Buffer.concat([decrypted, decipher.final()]);
-
     return String(decrypted);
   },
   makeIv () { return Buffer.from(crypto.randomBytes(16)).toString('hex').slice(0, 16); }
@@ -144,7 +142,7 @@ module.exports.homeDir = function () {
       break;
     }
     case "linux": {
-      returnHome =  home || (process.getuid() === 0 ? '/root' : (user ? '/home/' + user : null));
+      returnHome = home || (process.getuid() === 0 ? '/root' : (user ? '/home/' + user : null));
       typeSystem = "linux"
       break;
     }
