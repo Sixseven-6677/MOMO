@@ -6,8 +6,7 @@ const xavierQueue = global.xavierQueue || (global.xavierQueue = new Map());
 const xavierRecent = global.xavierRecent || (global.xavierRecent = new Map());
 
 const msgPath = path.join(__dirname, "cache/xavier_msg.txt");
-
-const defaultMessage = `🤖 ردٌّ تلقائي\nأنا هنا، تفضل بالتحدث\nللإيقاف: توسيع توقف`;
+const defaultMessage = `🤖 ردٌّ تلقائي\nأنا هنا، تفضل بالتحدث`;
 
 function getMessage() {
   try {
@@ -36,7 +35,7 @@ function clearQueue(threadID) {
   xavierRecent.delete(threadID);
 }
 
-function enqueueReply(api, threadID, messageID) {
+function enqueueReply(api, threadID) {
   const ms = getInterval();
   let queue = xavierQueue.get(threadID);
   if (!queue) { queue = []; xavierQueue.set(threadID, queue); }
@@ -47,15 +46,17 @@ function enqueueReply(api, threadID, messageID) {
   if (recent.length > 5) recent = recent.slice(-5);
   xavierRecent.set(threadID, recent);
 
-  const item = { messageID, scheduledAt: now + ms };
+  const item = { scheduledAt: now + ms };
   item.timer = setTimeout(() => {
     const idx = queue.indexOf(item);
     if (idx !== -1) queue.splice(idx, 1);
     if (!xavierActive.has(threadID)) return;
-    try { api.sendMessage(getMessage(), threadID, messageID); } catch (e) {}
+    // يرسل بدون رد على رسالة معينة
+    try { api.sendMessage(getMessage(), threadID); } catch (e) {}
   }, ms);
   queue.push(item);
 
+  // منع الفيضان (إذا 5 رسائل في أقل من ثانية)
   if (recent.length >= 5) {
     let isBurst = true;
     for (let i = 1; i < recent.length; i++) {
@@ -74,12 +75,12 @@ function enqueueReply(api, threadID, messageID) {
 
 module.exports.config = {
   name: "توسيع",
-  version: "3.2.0",
+  version: "4.0.0",
   hasPermssion: 0,
-  credits: "XAVIER",
-  description: "Auto Reply: يرد على كل رسالة بعد المدة المحددة",
+  credits: "MOMO",
+  description: "ردّ تلقائي على كل رسالة في الكروب بعد المدة المحددة",
   commandCategory: "أوامر",
-  usages: "توسيع | توسيع توقف",
+  usages: "توسيع | توسيع كسر",
   cooldowns: 0
 };
 
@@ -88,7 +89,7 @@ async function activate(api, threadID, messageID) {
   clearQueue(threadID);
   const ms = getInterval();
   return api.sendMessage(
-    `✅ تم تفعيل الرد التلقائي\nسيرد البوت على كل رسالة بعد ${ms / 1000} ثانية\nللإيقاف: توسيع توقف`,
+    `✅ تم تفعيل الرد التلقائي\nسيرد البوت على كل رسالة بعد ${ms / 1000} ثانية\nللإيقاف: توسيع كسر`,
     threadID, messageID
   );
 }
@@ -104,19 +105,28 @@ async function deactivate(api, threadID, messageID) {
 
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID } = event;
-  if (args[0] === "توقف") return deactivate(api, threadID, messageID);
+  // توسيع كسر أو توسيع توقف — كلاهما يوقف
+  if (args[0] === "كسر" || args[0] === "توقف") return deactivate(api, threadID, messageID);
   return activate(api, threadID, messageID);
 };
 
 module.exports.handleEvent = async function({ api, event }) {
-  if (!event || !event.body) return;
-  const body = event.body.trim();
-  const { threadID, messageID, senderID } = event;
+  // تجاهل إذا لم يكن رسالة نصية حقيقية
+  if (!event) return;
+  if (event.type !== "message" && event.type !== "message_reply") return;
+  if (!event.body || !event.body.trim()) return; // لايك أو ملصق بدون نص
+  if (event.attachments && event.attachments.length > 0 && !event.body.trim()) return;
 
+  const { threadID, senderID } = event;
   if (!xavierActive.has(threadID)) return;
 
   const botID = getBotID(api);
   if (botID && String(senderID) === botID) return;
 
-  enqueueReply(api, threadID, messageID);
+  // تجاهل أوامر البوت نفسه
+  const prefix = global.config?.PREFIX || "";
+  if (prefix && event.body.startsWith(prefix)) return;
+
+  // يرسل بدون رد على الرسالة
+  enqueueReply(api, threadID);
 };
