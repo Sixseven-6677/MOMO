@@ -4,7 +4,7 @@ module.exports.config = {
   name: "حمايةاسم",
   version: "1.0.0",
   hasPermssion: 0,
-  credits: "XAVIER",
+  credits: "MOMO",
   description: "حماية اسم الكروب من التغيير ويرجع تلقائياً",
   commandCategory: "أوامر",
   usages: "حمايةاسم [الاسم] | حمايةاسم توقف",
@@ -38,7 +38,7 @@ module.exports.run = async function({ api, event, args }) {
 
   if (!nameToProtect) {
     return api.sendMessage(
-      "❌ ما في اسم للكروب، اكتب الاسم بعد الأمر\nمثال: حمايةاسم XAVIER",
+      "❌ ما في اسم للكروب، اكتب الاسم بعد الأمر\nمثال: حمايةاسم [اسم الكروب]",
       threadID, messageID
     );
   }
