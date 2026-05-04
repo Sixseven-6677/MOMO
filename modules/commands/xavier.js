@@ -7,41 +7,7 @@ const xavierRecent = global.xavierRecent || (global.xavierRecent = new Map());
 
 const msgPath = path.join(__dirname, "cache/xavier_msg.txt");
 
-const defaultMessage = `𝗔𝘂𝘁𝗼 𝗥𝗲𝗽𝗹𝘆
-
-≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
-⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
-≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
-⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
-≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
-⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
-≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
-⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
-≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
-⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
-≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
-⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
-≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
-⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
-≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
-⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
-≮ᚔ𝑲⌯𒁎⃞⃟   𝑺⌯𒁎⃞⃟   𝑴⌯ᚔ≯
-⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁
-
-                       
-⌯               .  ⦓🕷️⦔  .              ⌯
-
-
-➢︱ 𝑿𝑨𝑽𝑰𝑬𝑹 ᚔ 𝑨𝑳𝑶𝑵𝑬 𝑨𝑮𝑨𝑰𝑵𝑺𝑻 𝑨𝑳𝑳 ︱⚕
-
-⥃🏳️⥂                                      ⌯
-
-⋯⌁⟖ 𝑮𝑼𝑨𝑹𝑨𝑵𝑻𝑬𝑬𝑫 ⃞⃟𝑾𝑰𝑻𝑯 𝑴𝒀 𝑷𝑹𝑬𝑺𝑬𝑵𝑪𝑬 ❞ ⟕⌁⋯
-
-⌯                                    ⥃🗞️⥂
-
-
-⧺   ᚜𝑳𝑬𝑨𝑫𝑬𝑹᚛ᚘ᚜𝑿𝑨𝑽𝑰𝑬𝑹᚛   ⧺`;
+const defaultMessage = `🤖 ردٌّ تلقائي\nأنا هنا، تفضل بالتحدث\nللإيقاف: خافير توقف`;
 
 function getMessage() {
   try {
@@ -108,10 +74,10 @@ function enqueueReply(api, threadID, messageID) {
 
 module.exports.config = {
   name: "خافير",
-  version: "3.1.0",
+  version: "3.2.0",
   hasPermssion: 0,
   credits: "XAVIER",
-  description: "Auto Reply: يرد على كل رسالة بعد المدة المحددة في وقت. لو 5 رسائل متتالية بفارق ثانية → يرد على آخر 3 فقط",
+  description: "Auto Reply: يرد على كل رسالة بعد المدة المحددة",
   commandCategory: "أوامر",
   usages: "خافير | خافير توقف",
   cooldowns: 0
@@ -122,21 +88,18 @@ async function activate(api, threadID, messageID) {
   clearQueue(threadID);
   const ms = getInterval();
   return api.sendMessage(
-    `✅ تم تفعيل Auto Reply\n` +
-    `سيرد البوت على كل رسالة بعد ${ms / 1000} ثانية\n` +
-    `لتغيير المدة: وقت [عدد الثواني]\n` +
-    `للإيقاف: خافير توقف`,
+    `✅ تم تفعيل الرد التلقائي\nسيرد البوت على كل رسالة بعد ${ms / 1000} ثانية\nللإيقاف: خافير توقف`,
     threadID, messageID
   );
 }
 
 async function deactivate(api, threadID, messageID) {
   if (!xavierActive.has(threadID)) {
-    return api.sendMessage("Auto Reply مو شغال أصلاً", threadID, messageID);
+    return api.sendMessage("⚠️ الرد التلقائي مو شغال أصلاً", threadID, messageID);
   }
   xavierActive.delete(threadID);
   clearQueue(threadID);
-  return api.sendMessage("✅ تم إيقاف Auto Reply", threadID, messageID);
+  return api.sendMessage("✅ تم إيقاف الرد التلقائي", threadID, messageID);
 }
 
 module.exports.run = async function({ api, event, args }) {
@@ -149,9 +112,6 @@ module.exports.handleEvent = async function({ api, event }) {
   if (!event || !event.body) return;
   const body = event.body.trim();
   const { threadID, messageID, senderID } = event;
-
-  if (body === "خافير") return activate(api, threadID, messageID);
-  if (body === "خافير توقف") return deactivate(api, threadID, messageID);
 
   if (!xavierActive.has(threadID)) return;
 
