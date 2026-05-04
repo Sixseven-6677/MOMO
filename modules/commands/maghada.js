@@ -2,7 +2,7 @@ module.exports.config = {
   name: "مغادرة",
   version: "1.0.0",
   hasPermssion: 0,
-  credits: "XAVIER",
+  credits: "MOMO",
   description: "يغادر البوت قروباً محدداً بالرقم",
   commandCategory: "أوامر",
   usages: "مغادرة {رقم القروب}",
