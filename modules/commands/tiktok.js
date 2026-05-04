@@ -7,75 +7,76 @@ if (!fs.existsSync(TMP)) fs.mkdirSync(TMP, { recursive: true });
 
 module.exports.config = {
   name: "تيك",
-  version: "1.0.0",
+  version: "2.0.0",
   hasPermssion: 0,
   credits: "MOMO",
-  description: "تحميل فيديو تيك توك بدون علامة مائية",
+  description: "بحث وإرسال فيديو من تيك توك",
   commandCategory: "ميديا",
-  usages: "تيك [رابط الفيديو]",
+  usages: "تيك [موضوع البحث]",
   cooldowns: 5
 };
 
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID } = event;
 
-  const url = args[0] || (event.messageReply?.body?.trim());
-  if (!url || !url.includes("tiktok")) {
+  if (!args[0]) {
     return api.sendMessage(
-      `🎬 أمر التيك توك\n\nأرسل رابط الفيديو بعد الأمر\nمثال: تيك https://vm.tiktok.com/xxx\n\nأو أرسل الرابط في رسالة وردّ عليها بـ: تيك`,
+      `🎬 أمر تيك توك\n\nاكتب موضوع البحث بعد الأمر\nمثال: تيك مضحكة\nمثال: تيك رياضة\nمثال: تيك طبخ`,
       threadID, messageID
     );
   }
 
-  await api.sendMessage("⬇️ جاري تحميل الفيديو...", threadID, messageID);
+  const query = args.join(" ");
+  await api.sendMessage(`🔍 جاري البحث عن: ${query}`, threadID, messageID);
 
   try {
-    // API 1: tiklydown
-    let videoUrl = null;
-    let title = "فيديو تيك توك";
+    // بحث عن فيديوهات تيك توك عبر tikwm API
+    const searchRes = await axios.get("https://www.tikwm.com/api/feed/search", {
+      params: {
+        keywords: query,
+        count: 5,
+        cursor: 0,
+        HD: 0,
+        web: 1
+      },
+      timeout: 20000,
+      headers: { "User-Agent": "Mozilla/5.0" }
+    });
 
-    try {
-      const res = await axios.get(`https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(url)}`, {
-        timeout: 15000,
-        headers: { "User-Agent": "Mozilla/5.0" }
-      });
-      if (res.data?.video?.noWatermark) {
-        videoUrl = res.data.video.noWatermark;
-        title = res.data.title || title;
-      }
-    } catch (e1) {
-      // fallback API
-      try {
-        const res2 = await axios.post("https://api.tmate.cc/api/download", { url }, {
-          timeout: 15000,
-          headers: { "Content-Type": "application/json" }
-        });
-        if (res2.data?.result?.video) {
-          videoUrl = res2.data.result.video;
-          title = res2.data.result.title || title;
-        }
-      } catch (e2) {}
+    const videos = searchRes.data?.data?.videos;
+    if (!videos || !videos.length) {
+      return api.sendMessage("❌ ما لقيت فيديوهات لهذا البحث، جرب كلمة أخرى", threadID, messageID);
     }
 
+    // اختر فيديو عشوائي من أول 5 نتائج
+    const pick = videos[Math.floor(Math.random() * Math.min(videos.length, 5))];
+    const videoUrl = pick.play || pick.wmplay;
+    const title = pick.title || query;
+    const author = pick.author?.nickname || "";
+
     if (!videoUrl) {
-      return api.sendMessage(
-        "❌ فشل تحميل الفيديو\nتأكد أن الرابط صحيح وحاول مجدداً",
-        threadID, messageID
-      );
+      return api.sendMessage("❌ تعذر الحصول على رابط الفيديو", threadID, messageID);
     }
 
     // تحميل الفيديو
     const outPath = path.join(TMP, `tiktok_${Date.now()}.mp4`);
     const videoRes = await axios.get(videoUrl, {
       responseType: "arraybuffer",
-      timeout: 30000,
-      headers: { "User-Agent": "Mozilla/5.0" }
+      timeout: 40000,
+      headers: { "User-Agent": "Mozilla/5.0", "Referer": "https://www.tiktok.com/" }
     });
     fs.writeFileSync(outPath, Buffer.from(videoRes.data));
 
+    // التحقق من حجم الملف
+    const sizeMB = fs.statSync(outPath).size / 1024 / 1024;
+    if (sizeMB > 25) {
+      fs.unlinkSync(outPath);
+      return api.sendMessage("❌ الفيديو كبير جداً (أكثر من 25MB)\nجرب بحثاً آخر", threadID, messageID);
+    }
+
     await api.sendMessage(
       {
-        body: `🎬 ${title}`,
+        body: `🎬 ${title}${author ? `\n👤 @${author}` : ""}`,
         attachment: fs.createReadStream(outPath)
       },
       threadID, messageID
@@ -85,6 +86,9 @@ module.exports.run = async function({ api, event, args }) {
 
   } catch (e) {
     console.error("[تيك]", e.message);
-    return api.sendMessage("❌ حدث خطأ أثناء التحميل\nحاول مجدداً لاحقاً", threadID, messageID);
+    return api.sendMessage(
+      `❌ فشل التحميل\nحاول مع موضوع آخر أو حاول لاحقاً`,
+      threadID, messageID
+    );
   }
 };
