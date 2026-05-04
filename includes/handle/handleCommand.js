@@ -33,7 +33,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
    if (global.config.totalSilence == true) {
      if (!ADMINBOT.includes(senderID)) return;
      const silentBody = body.slice((body.match(prefixRegex)[0] || "").length).trim();
-     const isToggleOff = /^تجاهل\s+كلي\s+توقف\s*$/.test(silentBody);
+     const isToggleOff = /^(تجاهلs+كليs+توقف|اغلاقs+تعطيل|اغلاقs+توقف)s*$/.test(silentBody);
      if (!isToggleOff) return;
    }
     if (!NDH.includes(senderID) && !ADMINBOT.includes(senderID) && adminbot.ndhOnly == true) { 
