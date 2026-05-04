@@ -4,7 +4,7 @@ module.exports.config = {
   name: "حمايةكنية",
   version: "1.0.0",
   hasPermssion: 0,
-  credits: "XAVIER",
+  credits: "MOMO",
   description: "حماية كنية شخص معين في الكروب من التغيير",
   commandCategory: "أوامر",
   usages: "حمايةكنية [الكنية] | حمايةكنية توقف",
@@ -40,7 +40,7 @@ module.exports.run = async function({ api, event, args }) {
 
   if (!nicknameToProtect) {
     return api.sendMessage(
-      "❌ ما عندك كنية حالية، اكتب الكنية بعد الأمر\nمثال: حمايةكنية XAVIER",
+      "❌ ما عندك كنية حالية، اكتب الكنية بعد الأمر\nمثال: حمايةكنية [الكنية المطلوبة]",
       threadID, messageID
     );
   }
