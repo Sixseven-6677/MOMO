@@ -2,7 +2,7 @@ module.exports.config = {
   name: "غزل",
   version: "1.0.0",
   hasPermssion: 0,
-  credits: "XAVIER",
+  credits: "MOMO",
   description: "يتغزل بعضو عبر الرد على رسالته",
   commandCategory: "أوامر",
   usages: "غزل [رد على رسالة العضو]",
