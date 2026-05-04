@@ -164,7 +164,7 @@ function battleStatus(battle) {
   const pBar = hpBar(p.hp, p.maxHP);
   const eBar = hpBar(e.hp, e.maxHP);
   return (
-    `⚔️ 𝑯𝑼𝑵𝑻𝑬𝑹 𝑩𝑨𝑻𝑻𝑳𝑬 — الجولة ${battle.turn}\n` +
+    `⚔️ معركة — الجولة ${battle.turn}\n` +
     `━━━━━━━━━━━━━━━━━\n` +
     `🧍 ${p.name}\n` +
     `❤️ [${pBar}] ${p.hp}/${p.maxHP}\n` +
@@ -304,7 +304,7 @@ function endBattle(api, threadID, battleKey, winner, battle) {
 
     savePlayer(p.id, pData);
 
-    let msg = `🏆 𝑽𝑰𝑪𝑻𝑶𝑹𝒀!\n\n${p.name} انتصر على ${battle.enemy.name}!\n`;
+    let msg = `🏆 انتصار!\n\n${p.name} انتصر على ${battle.enemy.name}!\n`;
     msg += `📊 XP: +${Math.floor(battle.enemy.exp * xpBoost)}${xpBoost > 1 ? ` (×${xpBoost} بوست!)` : ""}\n`;
     msg += `🪙 ذهب: +${coinsEarned}${goldBoost > 1 ? ` (×${goldBoost} بوست!)` : ""} | ⭐ هيبة: +5\n`;
     if (leveledUp) msg += `\n🎉 ترقية! المستوى ${pData.level} — الرتبة ${pData.rank}\n🔷 نقاط مهارة جديدة: +3 | اكتب: شجرة`;
@@ -315,7 +315,7 @@ function endBattle(api, threadID, battleKey, winner, battle) {
     pData.reputation = Math.max(0, (pData.reputation || 0) - 3);
     savePlayer(p.id, pData);
     return api.sendMessage(
-      `💀 𝑫𝑬𝑭𝑬𝑨𝑻!\n\n${p.name} سقط أمام ${battle.enemy.name}!\n⭐ هيبة: -3\nتدرب أكثر وحاول مجدداً...\n\n🔁 قتال مجدداً: اكتب قتال`,
+      `💀 هزيمة!\n\n${p.name} سقط أمام ${battle.enemy.name}!\n⭐ هيبة: -3\nتدرب أكثر وحاول مجدداً...\n\n🔁 قتال مجدداً: اكتب قتال`,
       threadID
     );
   }
@@ -342,7 +342,7 @@ function endPvP(api, threadID, battleKey, winnerId, battle) {
   savePlayers(allP);
 
   return api.sendMessage(
-    `⚔️ 𝑷𝒗𝑷 𝑬𝑵𝑫𝑬𝑫!\n\n🏆 الفائز: ${winner.name}\n   🪙 +80 ذهب | ⭐ +10 هيبة\n💀 الخاسر: ${loser.name}\n   ⭐ -5 هيبة`,
+    `⚔️ انتهت المباراة!\n\n🏆 الفائز: ${winner.name}\n   🪙 +80 ذهب | ⭐ +10 هيبة\n💀 الخاسر: ${loser.name}\n   ⭐ -5 هيبة`,
     threadID
   );
 }
@@ -726,7 +726,7 @@ module.exports.run = async function({ api, event, args }) {
     const ab2 = ARMOR_BONUSES[p.armor]   || {};
     return api.sendMessage(
       `⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁\n` +
-      `➢ 𝑯𝑼𝑵𝑻𝑬𝑹 𝑷𝑹𝑶𝑭𝑰𝑳𝑬\n\n` +
+      `👤 ملف اللاعب\n\n` +
       `🧍 الاسم: ${p.name}\n` +
       `🏅 الرتبة: ${p.rank} — المستوى ${p.level}\n` +
       `📊 XP: [${expBar}] ${p.exp}/${expNext}\n` +
@@ -782,7 +782,7 @@ module.exports.run = async function({ api, event, args }) {
       `${medals[i] || `${i+1}.`} ${p.name} — Lv.${p.level} ${p.rank} | 🏆${p.wins||0} 💀${p.losses||0}`
     );
     return api.sendMessage(
-      `⌁⋯᚛ᚘ᚜🗞️᚛ᚘ᚜🏳️᚛ᚘ᚜🗞️᚛ᚘ᚜⋯⌁\n➢ 𝑳𝑬𝑨𝑫𝑬𝑹𝑩𝑶𝑨𝑹𝑫\n\n` +
+      `🏆 ترتيب اللاعبين\n\n` +
       (lines.length ? lines.join("\n") : "لا يوجد لاعبون بعد!"),
       threadID, messageID
     );
@@ -877,7 +877,7 @@ module.exports.run = async function({ api, event, args }) {
   activeBattles.set(battleKey, battle);
 
   const startMsg =
-    `⚔️ 𝑩𝑨𝑻𝑻𝑳𝑬 𝑺𝑻𝑨𝑹𝑻!\n` +
+    `⚔️ بداية المعركة!\n` +
     `━━━━━━━━━━━━━━━━━\n` +
     `🧍 ${player.name} [Lv.${pData.level} ${pData.rank}]\n` +
     `👹 ${monster.name} [رتبة ${pData.rank}]\n` +
@@ -932,7 +932,7 @@ module.exports.handleEvent = async function({ api, event }) {
     activeBattles.set(`pvpref_${threadID}_${p2.id}`, bk);
 
     api.sendMessage(
-      `⚔️ 𝑷𝒗𝑷 𝑺𝑻𝑨𝑹𝑻!\n${p1.name} ضد ${p2.name}\n\n${battleStatus(battle)}\n\n🎯 دور: ${p1.name}\nأوامر: ضرب | دفاع | [مهارة]`,
+      `⚔️ بداية PvP!\n${p1.name} ضد ${p2.name}\n\n${battleStatus(battle)}\n\n🎯 دور: ${p1.name}\nأوامر: ضرب | دفاع | [مهارة]`,
       threadID
     );
 
