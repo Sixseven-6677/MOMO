@@ -6,6 +6,33 @@ const playersPath = path.join(dataDir, "qetal_players.json");
 
 const gharatBattles = global.gharatBattles || (global.gharatBattles = new Map());
 
+const battlesFilePath = path.join(dataDir, 'gharat_battles.json');
+
+function saveBattles() {
+  try {
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    const toSave = {};
+    for (const [key, b] of gharatBattles.entries()) {
+      const { autoTimer, ...rest } = b;
+      toSave[key] = rest;
+    }
+    fs.writeFileSync(battlesFilePath, JSON.stringify(toSave, null, 2));
+  } catch (e) {}
+}
+
+function loadBattles() {
+  try {
+    if (!fs.existsSync(battlesFilePath)) return;
+    const saved = JSON.parse(fs.readFileSync(battlesFilePath, 'utf8'));
+    for (const [key, b] of Object.entries(saved)) {
+      b.autoTimer = null;
+      gharatBattles.set(key, b);
+    }
+  } catch (e) {}
+}
+
+if (gharatBattles.size === 0) loadBattles();
+
 function loadPlayers() {
   try {
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -190,6 +217,7 @@ function processRaidAction(api, threadID, battle, battleKey, action) {
   // Check player death
   if (p.hp <= 0) {
     gharatBattles.delete(battleKey);
+    saveBattles();
     if (battle.autoTimer) clearTimeout(battle.autoTimer);
     const pData = loadPlayers()[p.id] || {};
     pData.losses = (pData.losses || 0) + 1;
@@ -210,6 +238,7 @@ function processRaidAction(api, threadID, battle, battleKey, action) {
     if (battle.wave >= battle.totalWaves) {
       // Raid complete!
       gharatBattles.delete(battleKey);
+      saveBattles();
       if (battle.autoTimer) clearTimeout(battle.autoTimer);
 
       const diff = DIFFICULTIES[battle.difficulty] || DIFFICULTIES["عادي"];
@@ -269,6 +298,7 @@ function processRaidAction(api, threadID, battle, battleKey, action) {
         processRaidAction(api, threadID, battle, battleKey, "ضرب");
       }, 30000);
       gharatBattles.set(battleKey, battle);
+      saveBattles();
       return;
     }
   }
@@ -285,6 +315,7 @@ function processRaidAction(api, threadID, battle, battleKey, action) {
     processRaidAction(api, threadID, battle, battleKey, "ضرب");
   }, 30000);
   gharatBattles.set(battleKey, battle);
+  saveBattles();
 }
 
 module.exports.config = {
@@ -357,6 +388,7 @@ module.exports.run = async function({ api, event, args }) {
   };
 
   gharatBattles.set(battleKey, battle);
+  saveBattles();
 
   const startMsg =
     `⚡ غارة تبدأ!\n` +
