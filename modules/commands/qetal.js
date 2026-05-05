@@ -730,6 +730,12 @@ module.exports.config = {
 
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID, senderID, mentions } = event;
+
+  // ── فحص التسجيل ──
+  const _checkAll = loadPlayers();
+  if (!_checkAll[senderID] || !_checkAll[senderID].registered) {
+    return api.sendMessage("❌ يجب التسجيل أولاً!\nاكتب: تسجيل", threadID, messageID);
+  }
   const sub = args[0] || "";
 
   let senderName = senderID;
