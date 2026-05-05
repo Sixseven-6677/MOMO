@@ -1,82 +1,78 @@
-const https = require("https");
+const axios = require("axios");
 
 const userHistories = new Map();
 const MAX_HISTORY = 10;
 
 module.exports.config = {
   name: "ذكاء",
-  version: "1.0.0",
+  version: "2.0.0",
   hasPermssion: 0,
-  credits: "XAVIER",
-  description: "ذكاء اصطناعي متقدم يجيب على أسئلتك ويتذكر المحادثة",
+  credits: "MOMO",
+  description: "ذكاء اصطناعي يجيب على أسئلتك ويتذكر المحادثة",
   commandCategory: "أوامر",
   usages: "ذكاء {سؤالك} | ذكاء مسح",
   cooldowns: 3
 };
 
-function httpsPost(options, body) {
-  return new Promise((resolve, reject) => {
-    const data = JSON.stringify(body);
-    const req = https.request({ ...options, headers: { ...options.headers, "Content-Length": Buffer.byteLength(data) } }, res => {
-      let out = "";
-      res.on("data", c => out += c);
-      res.on("end", () => { try { resolve(JSON.parse(out)); } catch { resolve(out); } });
-    });
-    req.on("error", reject);
-    req.write(data);
-    req.end();
-  });
-}
-
 async function askGroq(messages, apiKey) {
-  const result = await httpsPost({
-    hostname: "api.groq.com",
-    path: "/openai/v1/chat/completions",
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    }
-  }, {
+  const res = await axios.post("https://api.groq.com/openai/v1/chat/completions", {
     model: "llama-3.3-70b-versatile",
     messages,
     max_tokens: 1024,
     temperature: 0.7
+  }, {
+    timeout: 20000,
+    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" }
   });
-  return result?.choices?.[0]?.message?.content || null;
+  return res.data?.choices?.[0]?.message?.content || null;
 }
 
 async function askOpenAI(messages, apiKey) {
-  const result = await httpsPost({
-    hostname: "api.openai.com",
-    path: "/v1/chat/completions",
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    }
-  }, {
+  const res = await axios.post("https://api.openai.com/v1/chat/completions", {
     model: "gpt-4o-mini",
     messages,
     max_tokens: 1024,
     temperature: 0.7
+  }, {
+    timeout: 20000,
+    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" }
   });
-  return result?.choices?.[0]?.message?.content || null;
+  return res.data?.choices?.[0]?.message?.content || null;
 }
 
-async function askPollinations(messages) {
-  const result = await httpsPost({
-    hostname: "text.pollinations.ai",
-    path: "/openai",
-    method: "POST",
-    headers: { "Content-Type": "application/json" }
-  }, {
-    model: "openai",
+// محاولة GET البسيطة من pollinations (الأسرع والأموثوق)
+async function askPollinationsGET(messages) {
+  const system = (messages.find(m => m.role === "system") || {}).content || "";
+  const lastUser = [...messages].reverse().find(m => m.role === "user");
+  if (!lastUser) return null;
+
+  const res = await axios.get(
+    `https://text.pollinations.ai/${encodeURIComponent(lastUser.content)}`,
+    {
+      timeout: 25000,
+      params: {
+        model: "openai",
+        seed: Math.floor(Math.random() * 99999),
+        system: system.substring(0, 200)
+      },
+      responseType: "text"
+    }
+  );
+  const text = typeof res.data === "string" ? res.data.trim() : null;
+  return text && text.length > 2 ? text : null;
+}
+
+// محاولة POST من pollinations (تدعم التاريخ الكامل)
+async function askPollinationsPOST(messages) {
+  const res = await axios.post("https://text.pollinations.ai/openai", {
     messages,
+    model: "openai",
     seed: Math.floor(Math.random() * 99999)
+  }, {
+    timeout: 25000,
+    headers: { "Content-Type": "application/json" }
   });
-  if (typeof result === "string") return result;
-  return result?.choices?.[0]?.message?.content || null;
+  return res.data?.choices?.[0]?.message?.content || null;
 }
 
 module.exports.run = async function({ api, event, args }) {
@@ -84,15 +80,12 @@ module.exports.run = async function({ api, event, args }) {
 
   if (!args[0]) {
     return api.sendMessage(
-      `🤖 الذكاء الاصطناعي جاهز!\n\n` +
-      `• ذكاء {سؤالك} ← اسأل أي سؤال\n` +
-      `• ذكاء مسح ← مسح تاريخ محادثتك\n\n` +
-      `مثال: ذكاء ما هي عاصمة فرنسا؟`,
+      `🤖 الذكاء الاصطناعي جاهز!\n\n• ذكاء {سؤالك} ← اسأل أي سؤال\n• ذكاء مسح ← مسح تاريخ محادثتك\n\nمثال: ذكاء ما هي عاصمة فرنسا؟`,
       threadID, messageID
     );
   }
 
-  if (args[0] === "مسح") {
+  if (args[0] === "مسح" || args[0] === "حذف") {
     userHistories.delete(senderID);
     return api.sendMessage("🗑️ تم مسح تاريخ محادثتك بنجاح", threadID, messageID);
   }
@@ -107,7 +100,7 @@ module.exports.run = async function({ api, event, args }) {
   const messages = [
     {
       role: "system",
-      content: "أنت مساعد ذكي واسمك زينو. أجب دائماً باللغة العربية بشكل واضح ومختصر. إذا سألوك بلغة أخرى أجب بنفس اللغة."
+      content: "أنت مساعد ذكي اسمك زينو. أجب دائماً باللغة العربية بشكل واضح ومختصر. إذا سألوك بلغة أخرى أجب بنفس اللغة."
     },
     ...history
   ];
@@ -118,34 +111,48 @@ module.exports.run = async function({ api, event, args }) {
   let provider = "";
 
   try {
-    const groqKey = process.env.GROQ_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
-
-    if (groqKey) {
-      reply = await askGroq(messages, groqKey);
-      provider = "Groq · Llama 3.3 70B";
-    } else if (openaiKey) {
-      reply = await askOpenAI(messages, openaiKey);
-      provider = "OpenAI · GPT-4o mini";
+    // 1. جرب Groq إذا عنده مفتاح
+    if (process.env.GROQ_API_KEY) {
+      try {
+        reply = await askGroq(messages, process.env.GROQ_API_KEY);
+        if (reply) provider = "Groq · Llama 3.3 70B";
+      } catch (e) {}
     }
 
+    // 2. جرب OpenAI إذا عنده مفتاح
+    if (!reply && process.env.OPENAI_API_KEY) {
+      try {
+        reply = await askOpenAI(messages, process.env.OPENAI_API_KEY);
+        if (reply) provider = "OpenAI · GPT-4o mini";
+      } catch (e) {}
+    }
+
+    // 3. جرب Pollinations GET (الأسرع)
     if (!reply) {
-      reply = await askPollinations(messages);
-      provider = "Pollinations AI";
+      try {
+        reply = await askPollinationsGET(messages);
+        if (reply) provider = "Pollinations AI";
+      } catch (e) {}
     }
-  } catch (e) {
-    try {
-      reply = await askPollinations(messages);
-      provider = "Pollinations AI";
-    } catch (e2) {
-      return api.sendMessage("❌ فشل الاتصال بالذكاء الاصطناعي، حاول مرة أخرى لاحقاً", threadID, messageID);
+
+    // 4. جرب Pollinations POST (fallback)
+    if (!reply) {
+      try {
+        reply = await askPollinationsPOST(messages);
+        if (reply) provider = "Pollinations AI";
+      } catch (e) {}
     }
+
+  } catch (e) {}
+
+  if (!reply || reply.trim().length === 0) {
+    return api.sendMessage(
+      "❌ لم أتمكن من الاتصال بالذكاء الاصطناعي\nحاول مرة أخرى لاحقاً",
+      threadID, messageID
+    );
   }
 
-  if (!reply) {
-    return api.sendMessage("❌ لم يصل رد من الذكاء الاصطناعي، حاول مرة أخرى", threadID, messageID);
-  }
-
+  // حفظ الرد في التاريخ
   history[history.length - 1] = { role: "user", content: userMessage };
   history.push({ role: "assistant", content: reply });
   if (history.length > MAX_HISTORY) history.splice(0, history.length - MAX_HISTORY);
