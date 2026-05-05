@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const dataDir = path.join(__dirname, "data");
+const dataDir = path.join(process.cwd(), "Horizon_Database");
 const playersPath = path.join(dataDir, "qetal_players.json");
 
 const pendingReg = global.pendingRegistrations || (global.pendingRegistrations = new Map());
