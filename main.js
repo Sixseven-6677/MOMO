@@ -127,8 +127,9 @@ global.getText = function (...args) {
     return text;
 }
 
-var appStateFile = resolve(join(global.client.mainPath, global.config.APPSTATEPATH || "appstate.json"));
-const manualFlagPath = join(global.client.mainPath, 'appstate.manual');
+const _appstateFileName = process.env.APPSTATE_FILE || global.config.APPSTATEPATH || "appstate.json";
+var appStateFile = resolve(join(global.client.mainPath, _appstateFileName));
+const manualFlagPath = join(global.client.mainPath, _appstateFileName.replace(".json", ".manual"));
 const hasManualFlag = existsSync(manualFlagPath);
 if (hasManualFlag) {
     // تم تحديث الكوكيز يدوياً — تجاهل APPSTATE_JSON واستخدم الملف مباشرة
