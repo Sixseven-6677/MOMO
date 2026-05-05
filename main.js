@@ -128,7 +128,17 @@ global.getText = function (...args) {
 }
 
 var appStateFile = resolve(join(global.client.mainPath, global.config.APPSTATEPATH || "appstate.json"));
-if (process.env.APPSTATE_JSON) {
+const manualFlagPath = join(global.client.mainPath, 'appstate.manual');
+const hasManualFlag = existsSync(manualFlagPath);
+if (hasManualFlag) {
+    // تم تحديث الكوكيز يدوياً — تجاهل APPSTATE_JSON واستخدم الملف مباشرة
+    try { require("fs").unlinkSync(manualFlagPath); } catch(e) {}
+    try {
+        var appState = require(appStateFile);
+    } catch {
+        return logger.loader(global.getText("mirai", "notFoundPathAppstate"), "error");
+    }
+} else if (process.env.APPSTATE_JSON) {
     try {
         var appState = JSON.parse(process.env.APPSTATE_JSON);
         writeFileSync(appStateFile, JSON.stringify(appState, null, 4), 'utf8');
