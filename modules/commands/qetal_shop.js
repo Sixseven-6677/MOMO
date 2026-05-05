@@ -96,6 +96,12 @@ module.exports.config = {
 
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID, senderID } = event;
+
+  // ── فحص التسجيل ──
+  const _regAll = loadPlayers();
+  if (!_regAll[senderID] || !_regAll[senderID].registered) {
+    return api.sendMessage("❌ يجب التسجيل أولاً!\nاكتب: تسجيل", threadID, messageID);
+  }
   const sub = args[0] || "";
 
   const allP = loadPlayers();
