@@ -1,10 +1,7 @@
-const fs = require("fs");
-const path = require("path");
-
 module.exports.config = {
   name: "ريستارت",
-  version: "1.0.0",
-  hasPermssion: 3,
+  version: "2.0.0",
+  hasPermssion: 0,
   credits: "MOMO",
   description: "إعادة تشغيل البوت",
   commandCategory: "أوامر",
@@ -18,9 +15,14 @@ module.exports.run = async function({ api, event }) {
   if (!adminIDs.includes(String(senderID)))
     return api.sendMessage("❌ هذا الأمر لأدمن البوت فقط", threadID, messageID);
 
-  await api.sendMessage(
+  // نرسل الرسالة وعند تأكيد الإرسال نخرج فوراً
+  api.sendMessage(
     `🔄 جاري إعادة تشغيل البوت...\n⏱ سيعود خلال ثوانٍ`,
-    threadID, messageID
+    threadID,
+    () => {
+      // نخرج بـ exit code 1 لكي يعيد index.js التشغيل تلقائياً
+      process.exit(1);
+    },
+    messageID
   );
-  setTimeout(() => process.exit(1), 2000);
 };
