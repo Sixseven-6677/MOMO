@@ -1,6 +1,6 @@
 const fs   = require("fs");
 const path = require("path");
-const dataDir     = path.join(__dirname, "data");
+const dataDir = path.join(process.cwd(), "Horizon_Database");
 const playersPath = path.join(dataDir, "qetal_players.json");
 
 function loadPlayers() {
@@ -48,7 +48,7 @@ const ARMOR_NAMES = {
 };
 
 module.exports.config = {
-  name: "واجهة مستخدم",
+  name: "واجهة",
   version: "2.0.0",
   hasPermssion: 0,
   credits: "MOMO",
