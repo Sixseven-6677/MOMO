@@ -15,7 +15,7 @@ const path  = require('path');
 const TOKEN    = process.env.GITHUB_TOKEN  || '';
 const REPO     = process.env.GITHUB_REPO   || 'Sixseven-6677/MOMO';
 const DATA_DIR = path.join(process.cwd(), 'Horizon_Database');
-const TRACKED  = ['qetal_players.json', 'qetal_guilds.json'];
+const TRACKED  = ['qetal_players.json', 'qetal_guilds.json', 'admins.json'];
 
 const shaCache = {};
 
