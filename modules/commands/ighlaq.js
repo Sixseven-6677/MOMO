@@ -6,7 +6,7 @@ if (!global.ighlaqData) global.ighlaqData = new Map();
 
 module.exports.config = {
   name: "اغلاق",
-  version: "2.1.0",
+  version: "2.2.0",
   hasPermssion: 0,
   credits: "XAVIER",
   description: "التحكم في استجابة البوت للرسائل في القروب",
@@ -33,16 +33,6 @@ module.exports.run = async function({ api, event, args }) {
 
   if (sub === "كلي") {
     global.ighlaqData.set(threadID, "full");
-
-    // إيقاف التوسيع تلقائياً عند الإغلاق الكلي
-    if (global.xavierState && global.xavierState.has(threadID)) {
-      const s = global.xavierState.get(threadID);
-      if (s.currentTimer) { clearTimeout(s.currentTimer); s.currentTimer = null; }
-      s.active = false;
-      s.queue = [];
-      s.processing = false;
-    }
-
     return api.sendMessage("🔇", threadID, messageID);
   }
 
@@ -67,8 +57,5 @@ module.exports.run = async function({ api, event, args }) {
 module.exports.handleEvent = async function({ api, event }) {
   const { threadID, type } = event;
   if (type !== "message") return;
-
-  const mode = global.ighlaqData && global.ighlaqData.get(threadID);
-  if (!mode) return;
-  // صمت تام — لا نرد بأي شيء
+  // صمت تام — لا نرد بأي شيء عند الإغلاق
 };
