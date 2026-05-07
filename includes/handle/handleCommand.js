@@ -77,8 +77,19 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
     var command = commands.get(commandName);
     fs.writeFileSync(usgPath, JSON.stringify(usages, null, 4));
 
-    // ── تطابق 100% فقط ── لا يوجد تخمين أو تشابه
     if (!command) return;
+
+    // ── فحص الإغلاق الكلي — يمنع كل الأوامر بعد تفعيله ──────────────────
+    if (global.ighlaqData && global.ighlaqData.get(threadID) === "full") {
+      // الأدمن: يُسمح فقط بأمر "اغلاق تعطيل" أو "اغلاق توقف"
+      if (ADMINBOT.includes(senderID)) {
+        const isDeactivate = commandName === "اغلاق" && (args[0] === "تعطيل" || args[0] === "توقف");
+        if (!isDeactivate) return;
+      } else {
+        return; // الجميع: صمت تام
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────
 
     if (commandBanned.get(threadID) || commandBanned.get(senderID)) {
       if (!ADMINBOT.includes(senderID)) {
