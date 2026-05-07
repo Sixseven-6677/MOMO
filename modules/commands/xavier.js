@@ -1,24 +1,23 @@
-const fs = require("fs");
+const fs   = require("fs");
 const path = require("path");
 
-const xavierActive = global.xavierActive || (global.xavierActive = new Set());
-const xavierQueue = global.xavierQueue || (global.xavierQueue = new Map());
-const xavierRecent = global.xavierRecent || (global.xavierRecent = new Map());
+// ── حالة كل كروب مستقلة ──────────────────────────────────────────────────
+// xavierState: Map<threadID, { active, queue, processing, currentTimer }>
+const xavierState = global.xavierState || (global.xavierState = new Map());
 
-const msgPath = path.join(__dirname, "cache/xavier_msg.txt");
+const msgPath        = path.join(__dirname, "cache/xavier_msg.txt");
 const defaultMessage = `🤖 ردٌّ تلقائي\nأنا هنا، تفضل بالتحدث`;
 
 function getMessage() {
   try {
-    if (fs.existsSync(msgPath)) return fs.readFileSync(msgPath, "utf8");
+    if (fs.existsSync(msgPath)) return fs.readFileSync(msgPath, "utf8").trim() || defaultMessage;
   } catch (e) {}
   return defaultMessage;
 }
 
 function getInterval() {
   const ms = parseInt(global.config?.xavierInterval);
-  if (!isNaN(ms) && ms >= 1000) return ms;
-  return 30000;
+  return (!isNaN(ms) && ms >= 1000) ? ms : 30000;
 }
 
 function getBotID(api) {
@@ -28,105 +27,138 @@ function getBotID(api) {
   return null;
 }
 
-function clearQueue(threadID) {
-  const q = xavierQueue.get(threadID);
-  if (q) q.forEach(it => clearTimeout(it.timer));
-  xavierQueue.delete(threadID);
-  xavierRecent.delete(threadID);
-}
+// ── إدارة الحالة ──────────────────────────────────────────────────────────
 
-function enqueueReply(api, threadID) {
-  const ms = getInterval();
-  let queue = xavierQueue.get(threadID);
-  if (!queue) { queue = []; xavierQueue.set(threadID, queue); }
-
-  let recent = xavierRecent.get(threadID) || [];
-  const now = Date.now();
-  recent.push(now);
-  if (recent.length > 5) recent = recent.slice(-5);
-  xavierRecent.set(threadID, recent);
-
-  const item = { scheduledAt: now + ms };
-  item.timer = setTimeout(() => {
-    const idx = queue.indexOf(item);
-    if (idx !== -1) queue.splice(idx, 1);
-    if (!xavierActive.has(threadID)) return;
-    // يرسل بدون رد على رسالة معينة
-    try { api.sendMessage(getMessage(), threadID); } catch (e) {}
-  }, ms);
-  queue.push(item);
-
-  // منع الفيضان (إذا 5 رسائل في أقل من ثانية)
-  if (recent.length >= 5) {
-    let isBurst = true;
-    for (let i = 1; i < recent.length; i++) {
-      if (recent[i] - recent[i - 1] > 1000) { isBurst = false; break; }
-    }
-    if (isBurst && queue.length > 3) {
-      const tail = queue.slice(-3);
-      const toCancel = queue.slice(0, queue.length - 3);
-      toCancel.forEach(it => clearTimeout(it.timer));
-      queue.length = 0;
-      tail.forEach(it => queue.push(it));
-      xavierQueue.set(threadID, queue);
-    }
+function getState(threadID) {
+  if (!xavierState.has(threadID)) {
+    xavierState.set(threadID, {
+      active:       false,
+      queue:        [],   // { messageID, senderID }
+      processing:   false,
+      currentTimer: null
+    });
   }
+  return xavierState.get(threadID);
 }
 
-module.exports.config = {
-  name: "توسيع",
-  version: "4.0.0",
-  hasPermssion: 0,
-  credits: "MOMO",
-  description: "ردّ تلقائي على كل رسالة في الكروب بعد المدة المحددة",
-  commandCategory: "أوامر",
-  usages: "توسيع | توسيع كسر",
-  cooldowns: 0
-};
+// إعادة ضبط كاملة — يُستخدم عند الكسر أو التفعيل من جديد
+function resetState(threadID) {
+  const s = getState(threadID);
+  if (s.currentTimer) { clearTimeout(s.currentTimer); s.currentTimer = null; }
+  s.active     = false;
+  s.queue      = [];
+  s.processing = false;
+}
 
-async function activate(api, threadID, messageID) {
-  xavierActive.add(threadID);
-  clearQueue(threadID);
-  const ms = getInterval();
+// ── معالجة الطابور بشكل تسلسلي ───────────────────────────────────────────
+
+function processNext(api, threadID) {
+  const s = getState(threadID);
+
+  // إذا أُلغي التوسيع أو الطابور فارغ — توقف
+  if (!s.active || s.queue.length === 0) {
+    s.processing = false;
+    return;
+  }
+
+  s.processing = true;
+  const msg = s.queue.shift();   // خذ أول رسالة في الطابور
+  const ms  = getInterval();
+
+  s.currentTimer = setTimeout(() => {
+    s.currentTimer = null;
+
+    // إذا أُلغي التوسيع أثناء الانتظار — ألغِ ولا ترد
+    if (!s.active) {
+      s.processing = false;
+      return;
+    }
+
+    // رد على الرسالة المحددة
+    try {
+      api.sendMessage(getMessage(), threadID, null, msg.messageID);
+    } catch (e) {}
+
+    // انتقل للرسالة التالية في الطابور
+    processNext(api, threadID);
+  }, ms);
+}
+
+// ── أوامر التفعيل والإيقاف ────────────────────────────────────────────────
+
+function activate(api, threadID, messageID) {
+  resetState(threadID);
+  const s    = getState(threadID);
+  s.active   = true;
+  const ms   = getInterval();
   return api.sendMessage(
-    `✅ تم تفعيل الرد التلقائي\nسيرد البوت على كل رسالة بعد ${ms / 1000} ثانية\nللإيقاف: توسيع كسر`,
+    `✅ تم تفعيل التوسيع\n` +
+    `سيرد البوت على كل رسالة بعد ${ms / 1000} ثانية\n` +
+    `الردود تسلسلية — رسالة فرسالة\n\n` +
+    `للإيقاف وإلغاء كل الردود المعلقة: توسيع كسر`,
     threadID, messageID
   );
 }
 
-async function deactivate(api, threadID, messageID) {
-  if (!xavierActive.has(threadID)) {
-    return api.sendMessage("⚠️ الرد التلقائي مو شغال أصلاً", threadID, messageID);
+function deactivate(api, threadID, messageID) {
+  const s = getState(threadID);
+  if (!s.active && s.queue.length === 0 && !s.processing) {
+    return api.sendMessage("⚠️ التوسيع مو شغال أصلاً", threadID, messageID);
   }
-  xavierActive.delete(threadID);
-  clearQueue(threadID);
-  return api.sendMessage("✅ تم إيقاف الرد التلقائي", threadID, messageID);
+  const pending = s.queue.length + (s.processing ? 1 : 0);
+  resetState(threadID);
+  return api.sendMessage(
+    `✅ تم إيقاف التوسيع\n` +
+    `${pending > 0 ? `🗑️ تم إلغاء ${pending} رسالة معلقة` : "لا توجد رسائل معلقة"}`,
+    threadID, messageID
+  );
 }
 
-module.exports.run = async function({ api, event, args }) {
+// ── تصدير الأمر ───────────────────────────────────────────────────────────
+
+module.exports.config = {
+  name:            "توسيع",
+  version:         "5.0.0",
+  hasPermssion:    0,
+  credits:         "MOMO",
+  description:     "ردّ تسلسلي على الرسائل — رسالة بعد رسالة مع cooldown بينها",
+  commandCategory: "أوامر",
+  usages:          "توسيع | توسيع كسر",
+  cooldowns:       0
+};
+
+module.exports.run = async function ({ api, event, args }) {
   const { threadID, messageID } = event;
-  // توسيع كسر أو توسيع توقف — كلاهما يوقف
   if (args[0] === "كسر" || args[0] === "توقف") return deactivate(api, threadID, messageID);
   return activate(api, threadID, messageID);
 };
 
-module.exports.handleEvent = async function({ api, event }) {
-  // تجاهل إذا لم يكن رسالة نصية حقيقية
+module.exports.handleEvent = async function ({ api, event }) {
   if (!event) return;
   if (event.type !== "message" && event.type !== "message_reply") return;
-  if (!event.body || !event.body.trim()) return; // لايك أو ملصق بدون نص
-  if (event.attachments && event.attachments.length > 0 && !event.body.trim()) return;
+  if (!event.body || !event.body.trim()) return;
 
-  const { threadID, senderID } = event;
-  if (!xavierActive.has(threadID)) return;
+  const { threadID, senderID, messageID } = event;
+  const s = getState(threadID);
+  if (!s.active) return;
 
+  // تجاهل رسائل البوت نفسه
   const botID = getBotID(api);
   if (botID && String(senderID) === botID) return;
 
-  // تجاهل أوامر البوت نفسه
+  // تجاهل أوامر البوت
   const prefix = global.config?.PREFIX || "";
   if (prefix && event.body.startsWith(prefix)) return;
 
-  // يرسل بدون رد على الرسالة
-  enqueueReply(api, threadID);
+  // تجاهل أمر "توسيع كسر" نفسه
+  const body = event.body.trim();
+  if (body === "توسيع" || body === "توسيع كسر" || body === "توسيع توقف") return;
+
+  // أضف الرسالة للطابور
+  s.queue.push({ messageID, senderID });
+
+  // إذا ما في شيء يُعالَج الآن — ابدأ فوراً
+  if (!s.processing) {
+    processNext(api, threadID);
+  }
 };
