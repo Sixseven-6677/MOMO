@@ -444,6 +444,15 @@ function onBot({ models: botModel }) {
         authentication.Sequelize = Sequelize;
         authentication.sequelize = sequelize;
         const models = require('./includes/database/model')(authentication);    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        // ── استعادة البيانات من GitHub قبل تشغيل البوت ──
+        try {
+            const { syncFromGitHub, startAutoBackup } = require('./utils/persistence');
+            await syncFromGitHub();
+            startAutoBackup();
+        } catch (e) {
+            logger('[Persistence] خطأ في الاستعادة: ' + e.message, '[ STARTUP ]');
+        }
+
         const botData = {};
         botData.models = models
         onBot(botData);
