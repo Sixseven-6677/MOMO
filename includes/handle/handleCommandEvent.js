@@ -10,6 +10,19 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
         if (userBanned.has(senderID) || threadBanned.has(threadID) || allowInbox == !![] && senderID == threadID) return;
         const isLogEvent = event.type === "event";
 
+        // ── فحص الإغلاق الكلي — يمنع handleEvent عند التفعيل ──────────────────
+        if (!isLogEvent && global.ighlaqData && global.ighlaqData.get(threadID) === "full") {
+            const adminIDs = (global.config && global.config.ADMINBOT) || [];
+            if (!adminIDs.includes(senderID)) return; // صمت تام للغير أدمن
+            // الأدمن: يسمح فقط بمرور handleEvent لأمر الإغلاق نفسه
+            if (event.body) {
+                const body = (event.body || "").trim().toLowerCase();
+                const isDeactivate = /^اغلاق\s+(تعطيل|توقف)/.test(body);
+                if (!isDeactivate) return;
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         // Skip handleEvent if message is a recognized command (prevents double-replies)
         if (event.body && !isLogEvent) {
             const escapeRegex = str => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
