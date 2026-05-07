@@ -74,9 +74,9 @@ function processNext(api, threadID) {
       return;
     }
 
-    // رد على الرسالة المحددة
+    // إرسال للكروب بدون رد على رسالة محددة
     try {
-      api.sendMessage(getMessage(), threadID, null, msg.messageID);
+      api.sendMessage(getMessage(), threadID);
     } catch (e) {}
 
     // انتقل للرسالة التالية في الطابور
