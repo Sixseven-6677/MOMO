@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 // مسار ملف حفظ الأدمن المضافين يدوياً (يبقى حتى بعد الإعادة)
-const adminsDataPath = path.join(__dirname, "data/admins.json");
+const adminsDataPath = path.join(process.cwd(), "Horizon_Database/admins.json");
 const configPath = path.join(process.cwd(), "config.json");
 
 function loadExtraAdmins() {
