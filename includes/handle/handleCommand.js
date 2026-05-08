@@ -79,6 +79,13 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
 
     if (!command) return;
 
+    // ── فحص قفل الأمر بالغروب ────────────────────────────────────────────
+    if (global.lockedCmds && global.lockedCmds.has(threadID)) {
+      const locked = global.lockedCmds.get(threadID);
+      if (locked.has(commandName) && !ADMINBOT.includes(senderID))
+        return api.sendMessage('🔒 الأمر "' + commandName + '" مقفل في هذا الغروب', threadID);
+    }
+
     // ── فحص الإغلاق الكلي — يمنع كل الأوامر بعد تفعيله ──────────────────
     if (global.ighlaqData && global.ighlaqData.get(threadID) === "full") {
       // الأدمن: يُسمح فقط بأمر "اغلاق تعطيل" أو "اغلاق توقف"
