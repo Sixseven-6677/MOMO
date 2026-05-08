@@ -7,7 +7,7 @@ module.exports.config = {
   version: "1.0.0",
   hasPermssion: 0,
   credits: "XAVIER",
-  description: "تحديث رسالة خافير التي ترسل كل 30 ثانية",
+  description: "تحديث رسالة توسيع التي ترسل كل 30 ثانية",
   commandCategory: "أوامر",
   usages: "تحديث رسالة [النص]",
   cooldowns: 0
@@ -36,7 +36,7 @@ module.exports.run = async function({ api, event, args }) {
   try {
     fs.writeFileSync(msgPath, newMsg, "utf8");
     return api.sendMessage(
-      `✅ تم تحديث رسالة خافير\n\n📝 الرسالة الجديدة:\n${newMsg}\n\nالآن عند قول خافير سيرسل هذه الرسالة كل 30 ثانية`,
+      `✅ تم تحديث رسالة توسيع\n\n📝 الرسالة الجديدة:\n${newMsg}\n\nالآن عند قول توسيع سيرسل هذه الرسالة كل 30 ثانية`,
       threadID, messageID
     );
   } catch (e) {
