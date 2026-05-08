@@ -7,7 +7,7 @@ module.exports.config = {
   version: "1.0.0",
   hasPermssion: 0,
   credits: "XAVIER",
-  description: "تغيير زمن رسالة التوسيع (خافير) بالثواني",
+  description: "تغيير زمن رسالة التوسيع (توسيع) بالثواني",
   commandCategory: "أوامر",
   usages: "وقت [عدد الثواني] | وقت (لمعرفة الوقت الحالي)",
   cooldowns: 0
@@ -45,7 +45,7 @@ module.exports.run = async function({ api, event, args }) {
 
   return api.sendMessage(
     `✅ تم تغيير زمن رسالة التوسيع إلى ${seconds} ثانية\n` +
-    `⚠️ الجلسات الشغّالة حالياً ستحتاج لإعادة تشغيل الأمر "خافير" لتحديث الوقت`,
+    `⚠️ الجلسات الشغّالة حالياً ستحتاج لإعادة تشغيل الأمر "توسيع" لتحديث الوقت`,
     threadID, messageID
   );
 };
