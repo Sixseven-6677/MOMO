@@ -1,5 +1,5 @@
 {
-    "language": "vi",
+    "language": "en",
     "DeveloperMode": false,
     "autoCreateDB": true,
     "iconUnsend": { "status": true, "icon": "" },
@@ -46,7 +46,7 @@
     "spam": { "spamDelay": 2 },
     "subnautica": { "APIKEY": "" },
     "adminOnly": false,
-    "ignoreNonAdmin": true,
+    "ignoreNonAdmin": false,
     "totalSilence": false,
     "xavierInterval": 30000
 }
