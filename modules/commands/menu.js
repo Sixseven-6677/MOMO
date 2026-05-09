@@ -126,6 +126,7 @@ module.exports.run = async function({ api, event, args }) {
 ⌬ [من أنا] ← لعبة تخمين الشخصية التاريخية
 ⌬ [ترجمة {نص}] ← ترجمة النص للعربية
 ⌬ [ترجمة {كود} {نص}] ← ترجمة لأي لغة (en fr de tr...)
+⌬ [بروفايل {رابط}] ← عرض معلومات وصورة حساب فيسبوك
 ━━━━━━━━━━━━━━━━━
 
 🌟 [نظام Global Solo Leveling]
@@ -135,3 +136,4 @@ module.exports.run = async function({ api, event, args }) {
 
   return api.sendMessage(msg, threadID, messageID);
 };
+
