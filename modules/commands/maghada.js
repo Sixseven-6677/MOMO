@@ -40,7 +40,10 @@ module.exports.run = async function({ api, event, args }) {
 
   try {
     await api.sendMessage("👋 وداعاً.. أُمرت بالمغادرة", targetThread);
-    await api.removeUserFromGroup(global.botID || senderID, targetThread);
+    let botID;
+    try { botID = api.getCurrentUserID(); } catch(e) {}
+    if (!botID) return api.sendMessage('❌ تعذر معرفة ID البوت', threadID, messageID);
+    await api.removeUserFromGroup(botID, targetThread);
     return api.sendMessage(
       `✅ تم المغادرة بنجاح\nالقروب: ${name}`,
       threadID, messageID
