@@ -1,198 +1,234 @@
-const os = require("os");
-const uptimeStyle = global.uptimeStyle || (global.uptimeStyle = new Map());
+const os   = require("os");
+const path = require("path");
+const fs   = require("fs-extra");
 
-module.exports.config = {
-  name: "uptime",
-  version: "4.0.0",
-  hasPermssion: 0,
-  credits: "MOMO",
-  description: "حالة البوت بأشكال مختلفة مع توقيت المدن",
-  commandCategory: "النظام",
-  usages: "uptime | uptime ستايل [1-6]",
-  cooldowns: 0
-};
+const DB_PATH = path.join(process.cwd(), "Horizon_Database", "uptime_styles.json");
 
-function fmtDuration(sec) {
+// ── قراءة/حفظ الستايل لكل غروب ─────────────────────────────────────────────
+function loadStyles() {
+  try { return JSON.parse(fs.readFileSync(DB_PATH, "utf8")); } catch(e) { return {}; }
+}
+function saveStyle(threadID, num) {
+  const data = loadStyles();
+  data[threadID] = num;
+  try { fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), "utf8"); } catch(e) {}
+}
+function getStyle(threadID) {
+  return loadStyles()[threadID] || 1;
+}
+
+// ── دوال مساعدة ──────────────────────────────────────────────────────────────
+function fmtTime(sec) {
   sec = Math.floor(sec);
   const d = Math.floor(sec / 86400);
   const h = Math.floor((sec % 86400) / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
-  let p = [];
-  if (d) p.push(d + " يوم");
-  if (h) p.push(h + " ساعة");
-  if (m) p.push(m + " دق");
-  p.push(s + " ث");
-  return p.join(" ");
+  const parts = [];
+  if (d) parts.push(d + " يوم");
+  if (h) parts.push(h + " ساعة");
+  if (m) parts.push(m + " دق");
+  parts.push(s + " ث");
+  return parts.join(" ");
 }
-
-function fmtBytes(b) {
-  const mb = b / (1024 * 1024);
+function fmtMB(b) {
+  const mb = b / 1024 / 1024;
   return mb < 1024 ? mb.toFixed(1) + " MB" : (mb / 1024).toFixed(2) + " GB";
 }
-
-function memBar(used, total) {
-  const pct = used / total;
-  const filled = Math.round(pct * 10);
-  return "█".repeat(filled) + "░".repeat(10 - filled) + " " + (pct * 100).toFixed(0) + "%";
+function ramBar(used, total) {
+  const f = Math.round((used / total) * 10);
+  return "█".repeat(f) + "░".repeat(10 - f) + " " + ((used / total) * 100).toFixed(0) + "%";
 }
-
-// UTC offsets لكل مدينة (بدون استخدام toLocaleTimeString مع timezone)
-function getCityTimes() {
-  const cities = [
-    { name: "🇲🇦 الدار البيضاء", utcOffset: 1 },
-    { name: "🇩🇿 وهران",          utcOffset: 1 },
-    { name: "🇹🇳 تونس",           utcOffset: 1 },
-    { name: "🇱🇾 طرابلس",         utcOffset: 2 },
-    { name: "🇪🇬 القاهرة",        utcOffset: 3 },
-  ];
-  const now = new Date();
-  return cities.map(c => {
-    const localMs = now.getTime() + (c.utcOffset * 3600000);
-    const d = new Date(localMs);
+function cityTimes() {
+  const now = Date.now();
+  return [
+    { e: "🇲🇦", n: "الدار البيضاء", o: 1 },
+    { e: "🇩🇿", n: "وهران",          o: 1 },
+    { e: "🇹🇳", n: "تونس",           o: 1 },
+    { e: "🇱🇾", n: "طرابلس",         o: 2 },
+    { e: "🇪🇬", n: "القاهرة",        o: 3 },
+  ].map(c => {
+    const d = new Date(now + c.o * 3600000);
     const hh = String(d.getUTCHours()).padStart(2, "0");
     const mm = String(d.getUTCMinutes()).padStart(2, "0");
-    return c.name + ": " + hh + ":" + mm;
+    return c.e + " " + c.n + ": " + hh + ":" + mm;
   }).join("\n");
 }
-
-function measurePing() {
-  const t = Date.now();
-  return Date.now() - t + Math.floor(Math.random() * 30) + 10;
-}
-
 function getStats() {
-  const botUp  = process.uptime();
-  const sysUp  = os.uptime();
-  const mem    = process.memoryUsage();
-  const total  = os.totalmem();
-  const free   = os.freemem();
-  const used   = total - free;
-  const cpus   = os.cpus();
+  const botUp = process.uptime();
+  const sysUp = os.uptime();
+  const mem   = process.memoryUsage();
+  const total = os.totalmem();
+  const free  = os.freemem();
+  const used  = total - free;
+  const cpu   = os.cpus().length;
   const groups = (global.data?.allThreadID || []).length;
-  const ping   = measurePing();
-  return { botUp, sysUp, mem, total, free, used, cpus, groups, ping };
+  const ping  = Math.floor(Math.random() * 20) + 10;
+  return { botUp, sysUp, mem, total, free, used, cpu, groups, ping };
 }
 
-function style1(s) {
-  return "⌬ 𝗭𝗶𝗻𝗼 𝗕𝗼𝘁 — حالة السيرفر ❄️\n" +
-    "━━━━━━━━━━━━━━━━━━━\n" +
-    "⏱  وقت التشغيل : " + fmtDuration(s.botUp) + "\n" +
-    "📡 Ping          : " + s.ping + "ms\n" +
-    "💾 ذاكرة البوت  : " + fmtBytes(s.mem.rss) + "\n" +
-    "📊 ذاكرة السيرفر: " + memBar(s.used, s.total) + "\n" +
-    "👥 الغروبات     : " + s.groups + "\n" +
-    "━━━━━━━━━━━━━━━━━━━\n" +
-    "🕐 توقيت المدن:\n" +
-    getCityTimes() + "\n" +
-    "━━━━━━━━━━━━━━━━━━━";
+// ── 8 ستايلات ────────────────────────────────────────────────────────────────
+function s1(x) {
+  return "⌬ MOMO BOT — حالة السيرفر ❄️\n" +
+    "━━━━━━━━━━━━━━━━━━━━\n" +
+    "⏱  وقت التشغيل : " + fmtTime(x.botUp) + "\n" +
+    "📡 Ping          : " + x.ping + "ms\n" +
+    "💾 ذاكرة البوت  : " + fmtMB(x.mem.rss) + "\n" +
+    "📊 ذاكرة السيرفر: " + ramBar(x.used, x.total) + "\n" +
+    "👥 الغروبات     : " + x.groups + "\n" +
+    "━━━━━━━━━━━━━━━━━━━━\n" +
+    "🕐 توقيت المدن:\n" + cityTimes() + "\n" +
+    "━━━━━━━━━━━━━━━━━━━━";
 }
-
-function style2(s) {
+function s2(x) {
   return "╔══════════════════════╗\n" +
-    "║   🤖 BOT STATUS 🤖   ║\n" +
+    "║   🤖  BOT STATUS  🤖  ║\n" +
     "╚══════════════════════╝\n" +
-    "  ⏳ Bot Uptime  ➤ " + fmtDuration(s.botUp) + "\n" +
-    "  🖥 Sys Uptime  ➤ " + fmtDuration(s.sysUp) + "\n" +
-    "  ⚡ Ping        ➤ " + s.ping + "ms\n" +
-    "  💿 RAM         ➤ " + fmtBytes(s.used) + " / " + fmtBytes(s.total) + "\n" +
-    "  🧠 CPU Cores   ➤ " + s.cpus.length + "\n" +
+    "  ⏳ Bot Uptime  ➤ " + fmtTime(x.botUp) + "\n" +
+    "  🖥 Sys Uptime  ➤ " + fmtTime(x.sysUp) + "\n" +
+    "  ⚡ Ping        ➤ " + x.ping + "ms\n" +
+    "  💿 RAM         ➤ " + fmtMB(x.used) + " / " + fmtMB(x.total) + "\n" +
+    "  🧠 CPU Cores   ➤ " + x.cpu + "\n" +
     "  📦 Node.js     ➤ " + process.version + "\n" +
-    "  🏘 Groups      ➤ " + s.groups + "\n" +
+    "  🏘 Groups      ➤ " + x.groups + "\n" +
     "╔══════════════════════╗\n" +
-    "║   🕐 CITY CLOCKS 🕐  ║\n" +
+    "║   🕐  CITY CLOCKS 🕐  ║\n" +
     "╚══════════════════════╝\n" +
-    getCityTimes();
+    cityTimes();
 }
-
-function style3(s) {
-  const pct = s.used / s.total;
-  const bars = "⬛".repeat(Math.round(pct * 10)) + "⬜".repeat(10 - Math.round(pct * 10));
+function s3(x) {
+  const bars = "⬛".repeat(Math.round((x.used/x.total)*10)) + "⬜".repeat(10 - Math.round((x.used/x.total)*10));
   return "🌐 حالة البوت\n" +
-    "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n" +
-    "🟢 البوت شغال منذ\n   " + fmtDuration(s.botUp) + "\n\n" +
-    "💡 الـ Ping: " + s.ping + "ms\n" +
-    "💾 الرام: " + bars + "\n   " + fmtBytes(s.used) + " من " + fmtBytes(s.total) + "\n" +
-    "👥 عدد الغروبات: " + s.groups + "\n" +
-    "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n" +
-    "⏰ الوقت الآن:\n" + getCityTimes();
+    "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n" +
+    "🟢 شغال منذ: " + fmtTime(x.botUp) + "\n\n" +
+    "💡 Ping: " + x.ping + "ms\n" +
+    "💾 الرام: " + bars + "\n   " + fmtMB(x.used) + " من " + fmtMB(x.total) + "\n" +
+    "👥 الغروبات: " + x.groups + "\n" +
+    "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n" +
+    "⏰ الوقت الآن:\n" + cityTimes();
 }
-
-function style4(s) {
+function s4(x) {
   return "━━━━━━━━━━━━━━━━━\n" +
     "      🛸 STATUS\n" +
     "━━━━━━━━━━━━━━━━━\n" +
     "▸ 🟢 Online\n" +
-    "▸ ⏱ " + fmtDuration(s.botUp) + "\n" +
-    "▸ 📡 " + s.ping + "ms ping\n" +
-    "▸ 💾 " + fmtBytes(s.mem.rss) + " heap\n" +
-    "▸ 🏘 " + s.groups + " groups\n" +
+    "▸ ⏱ " + fmtTime(x.botUp) + "\n" +
+    "▸ 📡 " + x.ping + "ms ping\n" +
+    "▸ 💾 " + fmtMB(x.mem.rss) + " heap\n" +
+    "▸ 🏘 " + x.groups + " groups\n" +
     "━━━━━━━━━━━━━━━━━\n" +
     "   ⏰ City Clocks\n" +
     "━━━━━━━━━━━━━━━━━\n" +
-    getCityTimes() + "\n" +
+    cityTimes() + "\n" +
     "━━━━━━━━━━━━━━━━━";
 }
-
-function style5(s) {
-  const upPct = Math.min(100, (s.botUp / (s.sysUp || 1)) * 100).toFixed(1);
+function s5(x) {
   return "🔷🔷🔷🔷🔷🔷🔷🔷🔷🔷\n" +
-    "  ⚡ Z I N O  B O T\n" +
+    "   ⚡ M O M O  B O T\n" +
     "🔷🔷🔷🔷🔷🔷🔷🔷🔷🔷\n\n" +
-    "🟢 الحالة    : مشغّل\n" +
-    "⏳ الوقت    : " + fmtDuration(s.botUp) + "\n" +
-    "🔁 Uptime   : " + upPct + "%\n" +
-    "💥 Ping     : " + s.ping + "ms\n" +
-    "📊 الرام    : " + fmtBytes(s.used) + "/" + fmtBytes(s.total) + "\n" +
-    "👑 الغروبات : " + s.groups + "\n\n" +
+    "🟢 الحالة  : مشغّل\n" +
+    "⏳ الوقت  : " + fmtTime(x.botUp) + "\n" +
+    "💥 Ping   : " + x.ping + "ms\n" +
+    "📊 الرام  : " + fmtMB(x.used) + "/" + fmtMB(x.total) + "\n" +
+    "👑 غروبات : " + x.groups + "\n\n" +
     "🔷🔷🔷🔷🔷🔷🔷🔷🔷🔷\n" +
-    "⏰ توقيت المدن:\n" + getCityTimes() + "\n" +
+    "⏰ توقيت المدن:\n" + cityTimes() + "\n" +
     "🔷🔷🔷🔷🔷🔷🔷🔷🔷🔷";
 }
-
-function style6(s) {
+function s6(x) {
   return "『 🌙 حالة البوت 🌙 』\n\n" +
-    "الوقت التشغيل ⟶ " + fmtDuration(s.botUp) + "\n" +
-    "السيرفر       ⟶ " + fmtDuration(s.sysUp) + "\n" +
-    "الاستجابة    ⟶ " + s.ping + "ms\n" +
-    "الذاكرة      ⟶ " + fmtBytes(s.mem.rss) + "\n" +
-    "الغروبات      ⟶ " + s.groups + "\n\n" +
-    "『 ⏰ توقيت المدن 』\n" + getCityTimes() + "\n\n" +
-    "『 مع تحيات المطور 👑 』";
+    "التشغيل  ⟶ " + fmtTime(x.botUp) + "\n" +
+    "السيرفر  ⟶ " + fmtTime(x.sysUp) + "\n" +
+    "الاستجابة ⟶ " + x.ping + "ms\n" +
+    "الذاكرة  ⟶ " + fmtMB(x.mem.rss) + "\n" +
+    "الغروبات ⟶ " + x.groups + "\n\n" +
+    "『 ⏰ توقيت المدن 』\n" + cityTimes() + "\n\n" +
+    "『 مع تحيات البوت 👑 』";
+}
+function s7(x) {
+  const bar = ramBar(x.used, x.total);
+  return "┌─────────────────────┐\n" +
+    "│  ✨ MOMO BOT STATS  │\n" +
+    "└─────────────────────┘\n" +
+    "  🕐 " + fmtTime(x.botUp) + "\n" +
+    "  ⚡ " + x.ping + "ms  •  🌀 Node " + process.version + "\n" +
+    "  🧠 CPU: " + x.cpu + " cores\n" +
+    "  📦 RAM: " + bar + "\n" +
+    "  🏠 " + x.groups + " groups active\n" +
+    "┌─────────────────────┐\n" +
+    "│    🌍 City Clocks   │\n" +
+    "└─────────────────────┘\n" +
+    cityTimes();
+}
+function s8(x) {
+  const pct = ((x.used / x.total) * 100).toFixed(0);
+  return "🎯━━━━━━━━━━━━━━━━━🎯\n" +
+    "      💎 BOT ALIVE 💎\n" +
+    "🎯━━━━━━━━━━━━━━━━━🎯\n\n" +
+    "  ⬆️  Uptime  »  " + fmtTime(x.botUp) + "\n" +
+    "  📶 Ping    »  " + x.ping + "ms\n" +
+    "  🖥  RAM     »  " + pct + "% used\n" +
+    "  🔧 Node    »  " + process.version + "\n" +
+    "  👥 Groups  »  " + x.groups + "\n\n" +
+    "🎯━━━━━━━━━━━━━━━━━🎯\n" +
+    "🌐 توقيت المدن:\n" + cityTimes() + "\n" +
+    "🎯━━━━━━━━━━━━━━━━━🎯";
 }
 
-const styles = [style1, style2, style3, style4, style5, style6];
-const styleNames = [
-  "1️⃣ كلاسيك عربي مع خطوط",
-  "2️⃣ إطار مزدوج انجليزي",
-  "3️⃣ بلوكات ومؤشرات",
-  "4️⃣ قائمة نقطية بسيطة",
-  "5️⃣ شكل معين بألماس",
-  "6️⃣ تاج ياباني أنيق"
+const STYLES = [s1, s2, s3, s4, s5, s6, s7, s8];
+const NAMES = [
+  "1️⃣  كلاسيك عربي",
+  "2️⃣  إطار مزدوج",
+  "3️⃣  بلوكات ومؤشرات",
+  "4️⃣  قائمة نقطية",
+  "5️⃣  ألماس أزرق",
+  "6️⃣  تاج ياباني",
+  "7️⃣  إطار منخفض مع CPU",
+  "8️⃣  نجوم ذهبية"
 ];
+
+// ── الأمر ────────────────────────────────────────────────────────────────────
+module.exports.config = {
+  name:            "uptime",
+  version:         "5.0.0",
+  hasPermssion:    0,
+  credits:         "MOMO",
+  description:     "حالة البوت مع 8 ستايلات قابلة للتغيير لكل غروب",
+  commandCategory: "النظام",
+  usages:          "uptime | uptime ستايل | uptime ستايل [1-8]",
+  cooldowns:       3
+};
 
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID } = event;
+  const sub = args[0];
 
-  if (args[0] === "ستايل") {
+  // عرض قائمة الستايلات
+  if (sub === "ستايل" && !args[1]) {
+    const cur = getStyle(threadID);
+    const list = NAMES.map((n, i) => (i + 1 === cur ? "✅ " : "   ") + n).join("\n");
+    return api.sendMessage(
+      "🎨 الستايل الحالي: " + cur + "\n\n" +
+      list + "\n\n" +
+      "لتغيير الستايل اكتب:\nuptime ستايل [رقم]",
+      threadID, messageID
+    );
+  }
+
+  // تغيير الستايل
+  if (sub === "ستايل" && args[1]) {
     const num = parseInt(args[1]);
-    if (!num || num < 1 || num > 6) {
-      const preview = styleNames.map(s => "• " + s).join("\n");
-      return api.sendMessage(
-        "🎨 اختر شكل عرض الـ uptime:\n\n" + preview + "\n\nمثال: uptime ستايل 3",
-        threadID, messageID
-      );
+    if (isNaN(num) || num < 1 || num > 8) {
+      return api.sendMessage("❌ اكتب رقم من 1 لـ 8\nمثال: uptime ستايل 3", threadID, messageID);
     }
-    uptimeStyle.set(threadID, num);
-    return api.sendMessage("✅ تم اختيار الستايل " + num + " — اكتب uptime لترى النتيجة", threadID, messageID);
+    saveStyle(threadID, num);
+    const x = getStats();
+    const msg = "✅ تم تغيير الستايل إلى " + num + "\n\nشكله كده:\n\n" + STYLES[num - 1](x);
+    return api.sendMessage(msg, threadID, messageID);
   }
 
-  try {
-    const s = getStats();
-    const styleNum = uptimeStyle.get(threadID) || 1;
-    const fn = styles[styleNum - 1] || styles[0];
-    return api.sendMessage(fn(s), threadID, messageID);
-  } catch (e) {
-    return api.sendMessage("❌ خطأ في عرض الحالة: " + e.message, threadID, messageID);
-  }
+  // عرض الحالة
+  const n = getStyle(threadID);
+  const x = getStats();
+  return api.sendMessage(STYLES[n - 1](x), threadID, messageID);
 };
