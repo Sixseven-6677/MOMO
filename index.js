@@ -67,6 +67,8 @@ function startBot(appstateFile, message) {
     botInstances.delete(appstateFile);
     const x = String(codeExit);
     if (codeExit === 1) {
+      // تأخير 8 ثوانٍ لمنع تراكم عمليات MQTT المتوازية
+      await new Promise(r => setTimeout(r, 8000));
       return startBot(appstateFile, 'RESTARTING...');
     } else if (x.startsWith('2')) {
       const delay = parseInt(x.slice(1)) * 1000 || 3000;
