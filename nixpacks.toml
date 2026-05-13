@@ -4,6 +4,8 @@ nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
 [phases.install]
 cmds = ["npm install --legacy-peer-deps"]
 
+[start]
+cmd = "bash start.sh"
+
 [variables]
 NIXPACKS_NODE_VERSION = "20"
-
