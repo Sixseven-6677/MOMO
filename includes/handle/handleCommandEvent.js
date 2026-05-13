@@ -43,7 +43,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
                 getText2 = (...values) => {
                     const commandModule = cmd.languages || {};
                     if (!commandModule.hasOwnProperty(global.config.language))
-                        return api.sendMessage(global.getText('handleCommand','notFoundLanguage', cmd.config.name), threadID, messengeID);
+                        return api.sendMessage(global.getText('handleCommand','notFoundLanguage', cmd.config.name), threadID, messageID);
                     var lang = cmd.languages[global.config.language][values[0]] || '';
                     for (var i = values.length; i > 0x16c0 + -0x303 + -0x1f * 0xa3; i--) {
                         const expReg = RegExp('%' + i, 'g');
