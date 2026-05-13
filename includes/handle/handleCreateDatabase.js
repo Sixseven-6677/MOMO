@@ -25,7 +25,7 @@ module.exports = function ({ Users, Threads, Currencies }) {
                 setting2.data = {}
                 await Threads.setData(threadID, setting2);
                 const dataUser = global.data.allUserID
-                for (singleData of threadIn4.userInfo) {
+                for (const singleData of threadIn4.userInfo) {
                     if(singleData.gender != undefined) {
                         var gender = singleData.gender
                         userName.set(String(singleData.id), singleData.name);
