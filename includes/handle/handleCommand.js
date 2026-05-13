@@ -101,7 +101,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
     if (global.ighlaqData && global.ighlaqData.get(threadID) === "full") {
       // الأدمن: يُسمح فقط بأمر "اغلاق تعطيل" أو "اغلاق توقف"
       if (ADMINBOT.includes(senderID)) {
-        const isDeactivate = commandName === "اغلاق" && (args[0] === "تعطيل" || args[0] === "توقف");
+        const isDeactivate = (commandName === "اغلاق" && (args[0] === "تعطيل" || args[0] === "توقف")) || commandName === "فتح";
         if (!isDeactivate) return;
       } else {
         return; // الجميع: صمت تام
