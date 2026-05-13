@@ -1,65 +1,74 @@
-const axios = require("axios");
-const conversationHistory = new Map(); // threadID -> [{role, parts}]
+const axios = require('axios');
+
+const conversationHistory = new Map();
 
 module.exports.config = {
-  name: "فانغ",
-  version: "1.0.0",
+  name: 'فانغ',
+  version: '2.0.0',
   hasPermssion: 0,
-  credits: "FANG",
-  description: "ذكاء اصطناعي — تحدث مع فانغ",
-  commandCategory: "ذكاء اصطناعي",
-  usages: "فانغ [رسالتك]",
-  cooldowns: 3,
-  envConfig: {
-    GEMINI_KEY: ""
-  }
+  credits: 'FANG',
+  description: 'ذكاء اصطناعي مجاني — تحدث مع فانغ',
+  commandCategory: 'ذكاء اصطناعي',
+  usages: 'فانغ [رسالتك] | فانغ مسح',
+  cooldowns: 3
 };
+
+const SYSTEM_PROMPT = 'أنت فانغ، مساعد ذكي وودود يتحدث العربية بطلاقة. تجيب بإجابات مختصرة وواضحة ومفيدة. لديك شخصية خفيفة الظل وتساعد الجميع بأسلوب محترم.';
 
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID, senderID } = event;
-  const userMsg = args.join(" ").trim();
+  const userMsg = args.join(' ').trim();
 
   if (!userMsg)
     return api.sendMessage(
-      "🤖 أنا فانغ، مساعدك الذكي!\nكتب رسالتك بعد الأمر\n\nمثال: فانغ من أنت؟",
+      '🤖 أنا فانغ، مساعدك الذكي!
+كتب رسالتك بعد الأمر
+
+مثال: فانغ من أنت؟
+
+لمسح المحادثة: فانغ مسح',
       threadID, messageID
     );
 
-  const apiKey = global.config?.فانغ?.GEMINI_KEY || global.configModule?.فانغ?.GEMINI_KEY || "";
+  const key = senderID + '_' + threadID;
 
-  if (!apiKey) {
-    return api.sendMessage(
-      "⚠️ لم يتم تكوين مفتاح Gemini AI بعد\n\nأضف مفتاحك في config.json:\n\"فانغ\": { \"GEMINI_KEY\": \"مفتاحك\" }\n\nاحصل على مفتاح مجاني من:\naistudio.google.com",
-      threadID, messageID
-    );
+  if (userMsg === 'مسح') {
+    conversationHistory.delete(key);
+    return api.sendMessage('🗑 تم مسح المحادثة السابقة ✅', threadID, messageID);
   }
 
-  const waitMsg = await new Promise(r => api.sendMessage("💭 فانغ يفكر...", threadID, (e, i) => r(i)));
+  const waitMsg = await new Promise(r => api.sendMessage('💭 فانغ يفكر...', threadID, (e, i) => r(i)));
 
   try {
-    if (!conversationHistory.has(threadID)) conversationHistory.set(threadID, []);
-    const history = conversationHistory.get(threadID);
+    if (!conversationHistory.has(key)) conversationHistory.set(key, []);
+    const history = conversationHistory.get(key);
 
-    history.push({ role: "user", parts: [{ text: userMsg }] });
-    if (history.length > 20) history.splice(0, 2); // keep last 10 exchanges
+    history.push({ role: 'user', content: userMsg });
+    if (history.length > 20) history.splice(0, 2);
 
-    const systemPrompt = "أنت فانغ، مساعد ذكي ومفيد يتحدث العربية بطلاقة. أنت ودود وخفيف الظل وتساعد الناس بكل ما يحتاجون. تجيب بإجابات مختصرة وواضحة ما لم يُطلب منك التفصيل.";
-
-    const payload = {
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: history
-    };
+    const messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...history
+    ];
 
     const res = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      payload,
-      { headers: { "Content-Type": "application/json" }, timeout: 20000 }
+      'https://text.pollinations.ai/openai',
+      {
+        model: 'openai',
+        messages,
+        max_tokens: 800,
+        temperature: 0.8
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 25000
+      }
     );
 
-    const reply = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!reply) throw new Error("لم أحصل على رد من الذكاء الاصطناعي");
+    const reply = res.data?.choices?.[0]?.message?.content;
+    if (!reply) throw new Error('لم أحصل على رد من الذكاء الاصطناعي');
 
-    history.push({ role: "model", parts: [{ text: reply }] });
+    history.push({ role: 'assistant', content: reply });
 
     if (waitMsg) api.unsendMessage(waitMsg.messageID);
     return api.sendMessage(`🤖 فانغ:\n\n${reply}`, threadID, messageID);
@@ -67,6 +76,6 @@ module.exports.run = async function({ api, event, args }) {
   } catch(err) {
     if (waitMsg) api.unsendMessage(waitMsg.messageID);
     const msg = err.response?.data?.error?.message || err.message;
-    return api.sendMessage(`❌ خطأ في الذكاء الاصطناعي:\n${msg}`, threadID, messageID);
+    return api.sendMessage(`❌ تعذر الاتصال بالذكاء الاصطناعي\n${msg}`, threadID, messageID);
   }
 };
