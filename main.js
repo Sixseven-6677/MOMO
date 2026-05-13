@@ -234,6 +234,12 @@ function onBot({ models: botModel }) {
         if (loginError) return logger(JSON.stringify(loginError), `ERROR`);
         loginApiData.setOptions(global.config.FCAOption)
         writeFileSync(appStateFile, JSON.stringify(loginApiData.getAppState(), null, '\x09'))
+        // ── رفع الـ appstate المحدّث إلى GitHub فوراً ──
+        try {
+            const { pushAppstateNow } = require('./utils/persistence');
+            const _appstateBaseName = require('path').basename(appStateFile);
+            pushAppstateNow(_appstateBaseName).catch(() => {});
+        } catch(e) {}
         global.client.api = loginApiData
         global.config.version = '1.2.14'
         global.client.timeStart = new Date().getTime(),
