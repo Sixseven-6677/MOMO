@@ -7,7 +7,7 @@ if (!fs.existsSync(TMP)) fs.mkdirSync(TMP, { recursive: true });
 
 module.exports.config = {
   name:            "تيك",
-  version:         "4.0.0",
+  version:         "5.0.0",
   hasPermssion:    0,
   credits:         "MOMO",
   description:     "بحث وإرسال فيديو من تيك توك",
@@ -16,28 +16,43 @@ module.exports.config = {
   cooldowns:       10
 };
 
-// ── البحث عبر tikwm ─────────────────────────────────────────────
 async function searchTikwm(query) {
   const res = await axios.get("https://www.tikwm.com/api/feed/search", {
     params: { keywords: query, count: 10, cursor: 0, HD: 0, web: 1 },
-    timeout: 15000,
+    timeout: 12000,
     headers: {
-      "User-Agent": "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36",
+      "User-Agent": "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36",
       "Referer":    "https://www.tikwm.com/"
     }
   });
   const videos = res.data?.data?.videos;
-  if (!videos?.length) return null;
+  if (!Array.isArray(videos) || !videos.length) return null;
   const pick = videos[Math.floor(Math.random() * Math.min(videos.length, 5))];
   return {
-    url:         pick.play   || null,
-    urlFallback: pick.wmplay || null,
-    title:       pick.title  || query,
-    author:      pick.author?.nickname || ""
+    url:    pick.play   || null,
+    backup: pick.wmplay || null,
+    title:  pick.title  || query,
+    author: pick.author?.nickname || ""
   };
 }
 
-// ── تحميل الفيديو من URL ─────────────────────────────────────────
+async function searchTiklydown(query) {
+  const res = await axios.get("https://api.tiklydown.eu.org/api/search", {
+    params: { query, count: 5 },
+    timeout: 10000,
+    headers: { "User-Agent": "Mozilla/5.0" }
+  });
+  const items = res.data?.data || res.data?.videos;
+  if (!Array.isArray(items) || !items.length) return null;
+  const pick = items[0];
+  return {
+    url:    pick.play || pick.video || pick.url || null,
+    backup: pick.wmplay || null,
+    title:  pick.title || query,
+    author: pick.author || ""
+  };
+}
+
 async function downloadVideo(url) {
   const outPath = path.join(TMP, `tiktok_${Date.now()}.mp4`);
   const res = await axios.get(url, {
@@ -45,10 +60,9 @@ async function downloadVideo(url) {
     timeout: 60000,
     maxContentLength: 50 * 1024 * 1024,
     headers: {
-      "User-Agent":      "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36",
-      "Referer":         "https://www.tiktok.com/",
-      "Accept":          "video/mp4,video/*;q=0.9,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.5"
+      "User-Agent": "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36",
+      "Referer":    "https://www.tiktok.com/",
+      "Accept":     "video/mp4,video/*;q=0.9,*/*;q=0.8"
     }
   });
   const buf = Buffer.from(res.data);
@@ -57,88 +71,69 @@ async function downloadVideo(url) {
   return outPath;
 }
 
-// ── محاولة عبر ssstik ────────────────────────────────────────────
-async function searchSsstik(query) {
-  // البحث أولاً بكلمات إنجليزية
-  const res = await axios.get(`https://api.tiklydown.eu.org/api/search`, {
-    params: { query, count: 5 },
-    timeout: 10000,
-    headers: { "User-Agent": "Mozilla/5.0" }
-  });
-  const items = res.data?.data || res.data?.videos || res.data;
-  if (!Array.isArray(items) || !items.length) return null;
-  const pick = items[0];
-  return {
-    url:         pick.play || pick.video || pick.url || null,
-    urlFallback: pick.wmplay || null,
-    title:       pick.title || query,
-    author:      pick.author || ""
-  };
-}
-
 module.exports.run = async function ({ api, event, args }) {
   const { threadID, messageID } = event;
 
   if (!args[0]) {
     return api.sendMessage(
-      `🎬 أمر تيك توك\n\nاكتب موضوع البحث بعد الأمر\nمثال: تيك مضحكة\nمثال: تيك رياضة\nمثال: تيك طبخ`,
+      `🎬 أمر تيك توك\n\nاكتب موضوع البحث بعد الأمر\nمثال: تيك مضحكة\nمثال: تيك Gojo edit`,
       threadID, messageID
     );
   }
 
-  const query = args.join(" ").trim();
-  await api.sendMessage(`🔍 جاري البحث عن: ${query}`, threadID, messageID);
+  const query = args.join(" ");
+  let waitMsgID = null;
 
-  let info   = null;
-
-  // محاولة 1: tikwm
-  try { info = await searchTikwm(query); } catch (e) {}
-
-  // محاولة 2: ssstik/tiklydown
-  if (!info || !info.url) {
-    try { info = await searchSsstik(query); } catch (e) {}
-  }
-
-  if (!info || !info.url) {
-    return api.sendMessage(
-      `❌ ما لقيت فيديو لـ "${query}"\n\nجرب:\n• كلمات إنجليزية (funny, dance, food)\n• كلمات أقصر وأبسط`,
-      threadID, messageID
-    );
-  }
-
-  let outPath = null;
-  // محاولة التحميل من الرابط الأساسي
-  try { outPath = await downloadVideo(info.url); } catch (e) {}
-
-  // محاولة الرابط الاحتياطي (بدون ووترمارك)
-  if (!outPath && info.urlFallback) {
-    try { outPath = await downloadVideo(info.urlFallback); } catch (e) {}
-  }
-
-  if (!outPath) {
-    return api.sendMessage(
-      `❌ لقيت الفيديو لكن فشل التحميل\nجرب موضوع آخر`,
-      threadID, messageID
-    );
-  }
-
-  const sizeMB = fs.statSync(outPath).size / 1024 / 1024;
-  if (sizeMB > 25) {
-    fs.unlinkSync(outPath);
-    return api.sendMessage("❌ الفيديو كبير جداً (+25MB)\nجرب موضوع آخر", threadID, messageID);
-  }
+  await new Promise(r => api.sendMessage(
+    `🔍 جاري البحث عن: ${query}...`, threadID,
+    (e, info) => { waitMsgID = info?.messageID; r(); }, messageID
+  )).catch(() => {});
 
   try {
-    await api.sendMessage(
-      {
-        body:       `🎬 ${info.title}${info.author ? `\n👤 @${info.author}` : ""}`,
-        attachment: fs.createReadStream(outPath)
-      },
-      threadID, messageID
-    );
-  } catch (e) {
-    return api.sendMessage("❌ فشل إرسال الفيديو: " + e.message, threadID, messageID);
-  } finally {
-    setTimeout(() => { try { fs.unlinkSync(outPath); } catch (e) {} }, 15000);
+    // بحث — جرّب tikwm أولاً ثم tiklydown
+    let video = null;
+    try   { video = await searchTikwm(query); }     catch(e) {}
+    if (!video) {
+      try { video = await searchTiklydown(query); } catch(e) {}
+    }
+
+    if (!video || (!video.url && !video.backup)) {
+      if (waitMsgID) { try { api.unsendMessage(waitMsgID); } catch(e) {} }
+      return api.sendMessage(`❌ ما لقيت نتائج لـ "${query}"\nجرب كلمات إنجليزية أو موضوع آخر`, threadID, messageID);
+    }
+
+    // تحميل — جرّب الرابط الأول ثم الاحتياطي
+    let outPath = null;
+    const urlsToTry = [video.url, video.backup].filter(Boolean);
+
+    for (const url of urlsToTry) {
+      try { outPath = await downloadVideo(url); break; } catch(e) {}
+    }
+
+    if (!outPath) {
+      if (waitMsgID) { try { api.unsendMessage(waitMsgID); } catch(e) {} }
+      return api.sendMessage(`❌ تعذّر تحميل الفيديو\nحاول مع موضوع آخر`, threadID, messageID);
+    }
+
+    // إرسال
+    await new Promise((resolve, reject) => {
+      api.sendMessage(
+        {
+          body:       `🎬 ${video.title}\n👤 ${video.author}`,
+          attachment: fs.createReadStream(outPath)
+        },
+        threadID,
+        (err) => err ? reject(err) : resolve(),
+        messageID
+      );
+    });
+
+    setTimeout(() => { try { fs.unlinkSync(outPath); } catch(e) {} }, 15000);
+    if (waitMsgID) { try { api.unsendMessage(waitMsgID); } catch(e) {} }
+
+  } catch(e) {
+    console.error("[تيك]", e.message);
+    if (waitMsgID) { try { api.unsendMessage(waitMsgID); } catch(ex) {} }
+    return api.sendMessage(`❌ فشل تحميل الفيديو\nحاول لاحقاً أو جرب موضوعاً آخر`, threadID, messageID);
   }
 };

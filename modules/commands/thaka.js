@@ -5,7 +5,7 @@ const MAX_HISTORY   = 10;
 
 module.exports.config = {
   name:            "ذكاء",
-  version:         "4.0.0",
+  version:         "5.0.0",
   hasPermssion:    0,
   credits:         "MOMO",
   description:     "ذكاء اصطناعي يجيب على أسئلتك ويتذكر المحادثة",
@@ -14,130 +14,100 @@ module.exports.config = {
   cooldowns:       3
 };
 
-const SYSTEM_PROMPT =
-  "أنت مساعد ذكي اسمك زينو. أجب دائماً باللغة العربية بشكل واضح ومختصر ما لم يتحدث المستخدم بلغة أخرى.";
+const SYSTEM_PROMPT = "أنت مساعد ذكي اسمك زينو. أجب دائماً باللغة العربية بشكل واضح ومختصر ما لم يتحدث المستخدم بلغة أخرى.";
 
-// ── 1) Pollinations AI — POST ────────────────────────────────────
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, r) => setTimeout(() => r(new Error("timeout")), ms))
+  ]);
+}
+
 async function askPollinationsPOST(messages) {
   const res = await axios.post(
     "https://text.pollinations.ai/openai",
     { messages, model: "openai-large", seed: Math.floor(Math.random() * 99999) },
-    {
-      timeout: 30000,
-      headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0" }
-    }
+    { timeout: 12000, headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0" } }
   );
   const text = res.data?.choices?.[0]?.message?.content?.trim();
-  return text && text.length > 3 ? text : null;
+  return (text && text.length > 3) ? text : null;
 }
 
-// ── 2) Pollinations AI — GET (بدون مفتاح) ───────────────────────
 async function askPollinationsGET(question) {
-  const url = `https://text.pollinations.ai/${encodeURIComponent(question)}`;
+  const url = `https://text.pollinations.ai/${encodeURIComponent(question)}?model=openai&seed=${Math.floor(Math.random()*99999)}`;
   const res = await axios.get(url, {
-    timeout: 25000,
-    params: {
-      model: "openai",
-      seed: Math.floor(Math.random() * 99999),
-      system: SYSTEM_PROMPT.substring(0, 200)
-    },
+    timeout: 12000,
     headers: { "User-Agent": "Mozilla/5.0", "Accept": "text/plain" },
     responseType: "text"
   });
   const text = typeof res.data === "string" ? res.data.trim() : String(res.data).trim();
-  if (text && text.length > 3 && !text.startsWith("{")) return text;
-  return null;
+  return (text && text.length > 3 && !text.startsWith("{")) ? text : null;
 }
 
-// ── 3) Groq (مجاني مع مفتاح) ─────────────────────────────────────
 async function askGroq(messages) {
   const key = process.env.GROQ_API_KEY;
   if (!key) return null;
   const res = await axios.post(
     "https://api.groq.com/openai/v1/chat/completions",
     { model: "llama-3.3-70b-versatile", messages, max_tokens: 1024, temperature: 0.7 },
-    { timeout: 20000, headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" } }
+    { timeout: 12000, headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" } }
   );
   return res.data?.choices?.[0]?.message?.content?.trim() || null;
 }
 
-// ── 4) OpenAI (مع مفتاح) ────────────────────────────────────────
 async function askOpenAI(messages) {
   const key = process.env.OPENAI_API_KEY;
   if (!key) return null;
   const res = await axios.post(
     "https://api.openai.com/v1/chat/completions",
     { model: "gpt-4o-mini", messages, max_tokens: 1024, temperature: 0.7 },
-    { timeout: 20000, headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" } }
+    { timeout: 12000, headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" } }
   );
   return res.data?.choices?.[0]?.message?.content?.trim() || null;
 }
 
-// ── 5) DuckDuckGo AI ─────────────────────────────────────────────
-async function askDuckDuckGo(question) {
-  try {
-    const status = await axios.get("https://duckduckgo.com/duckchat/v1/status", {
-      headers: {
-        "User-Agent":    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "x-vqd-accept":  "1",
-        "Accept":        "application/json"
-      },
-      timeout: 10000
-    });
-    const token = status.headers["x-vqd-4"];
-    if (!token) return null;
-
-    const res = await axios.post(
-      "https://duckduckgo.com/duckchat/v1/chat",
-      {
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user",   content: question }
-        ]
-      },
-      {
-        timeout: 25000,
-        headers: {
-          "User-Agent":   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          "Content-Type": "application/json",
-          "x-vqd-4":      token,
-          "Accept":       "text/event-stream"
-        },
-        responseType: "text"
-      }
-    );
-
-    const lines = String(res.data).split("\n");
-    let fullText = "";
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const chunk = line.slice(6).trim();
-      if (chunk === "[DONE]") break;
-      try {
-        const obj = JSON.parse(chunk);
-        const delta = obj?.message || obj?.choices?.[0]?.delta?.content || "";
-        fullText += delta;
-      } catch (e) {}
-    }
-    return fullText.trim() || null;
-  } catch (e) {
-    return null;
-  }
-}
-
-// ── 6) Gemini بديل مجاني ─────────────────────────────────────────
-async function askGeminiFree(question) {
+async function askGemini(question) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return null;
   const res = await axios.post(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
-    {
-      contents: [{ parts: [{ text: SYSTEM_PROMPT + "\n\nسؤال المستخدم: " + question }] }]
-    },
-    { timeout: 20000, headers: { "Content-Type": "application/json" } }
+    { contents: [{ parts: [{ text: SYSTEM_PROMPT + "\n\n" + question }] }] },
+    { timeout: 12000, headers: { "Content-Type": "application/json" } }
   );
   return res.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+}
+
+async function tryAll(messages, question) {
+  // Run all providers in parallel — return the first one that answers
+  const providers = [
+    { name: "Groq · Llama 3",     fn: () => askGroq(messages) },
+    { name: "OpenAI · GPT-4o",    fn: () => askOpenAI(messages) },
+    { name: "Gemini Flash",        fn: () => askGemini(question) },
+    { name: "Pollinations POST",   fn: () => askPollinationsPOST(messages) },
+    { name: "Pollinations GET",    fn: () => askPollinationsGET(question) },
+  ];
+
+  return new Promise((resolve) => {
+    let remaining = providers.length;
+    let resolved  = false;
+
+    for (const p of providers) {
+      withTimeout(p.fn(), 13000)
+        .then(text => {
+          if (!resolved && text && text.trim().length > 3) {
+            resolved = true;
+            resolve({ text: text.trim(), provider: p.name });
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          remaining--;
+          if (!resolved && remaining === 0) {
+            resolve(null);
+          }
+        });
+    }
+  });
 }
 
 module.exports.run = async function ({ api, event, args }) {
@@ -145,10 +115,7 @@ module.exports.run = async function ({ api, event, args }) {
 
   if (!args[0]) {
     return api.sendMessage(
-      `🤖 الذكاء الاصطناعي جاهز!\n\n` +
-      `• ذكاء {سؤالك} ← اسأل أي سؤال\n` +
-      `• ذكاء مسح ← مسح تاريخ محادثتك\n\n` +
-      `مثال: ذكاء ما هي عاصمة فرنسا؟`,
+      `🤖 الذكاء الاصطناعي جاهز!\n\n• ذكاء {سؤالك} ← اسأل أي سؤال\n• ذكاء مسح ← مسح تاريخ محادثتك\n\nمثال: ذكاء ما هي عاصمة فرنسا؟`,
       threadID, messageID
     );
   }
@@ -165,40 +132,30 @@ module.exports.run = async function ({ api, event, args }) {
 
   const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...history];
 
-  const waitMsg = await api.sendMessage("⏳ جاري التفكير...", threadID, messageID);
+  // أرسل رسالة الانتظار
+  let waitMsgID = null;
+  await new Promise(r => api.sendMessage(
+    "⏳ جاري التفكير...", threadID,
+    (e, info) => { waitMsgID = info?.messageID; r(); }, messageID
+  )).catch(() => {});
 
-  let reply    = null;
-  let provider = "";
+  const result = await tryAll(messages, userMessage);
 
-  const tries = [
-    async () => { const r = await askGroq(messages);             if (r) { provider = "Groq · Llama 3.3 70B";    return r; } },
-    async () => { const r = await askOpenAI(messages);           if (r) { provider = "OpenAI · GPT-4o mini";    return r; } },
-    async () => { const r = await askGeminiFree(userMessage);    if (r) { provider = "Google Gemini";           return r; } },
-    async () => { const r = await askPollinationsPOST(messages); if (r) { provider = "Pollinations · GPT Large"; return r; } },
-    async () => { const r = await askPollinationsGET(userMessage);if(r) { provider = "Pollinations AI";         return r; } },
-    async () => { const r = await askDuckDuckGo(userMessage);    if (r) { provider = "DuckDuckGo AI";          return r; } }
-  ];
+  if (waitMsgID) { try { api.unsendMessage(waitMsgID); } catch(e) {} }
 
-  for (const tryFn of tries) {
-    try { reply = await tryFn(); } catch (e) {}
-    if (reply) break;
-  }
-
-  try { api.unsendMessage(waitMsg.messageID); } catch (e) {}
-
-  if (!reply || reply.trim().length === 0) {
+  if (!result) {
     return api.sendMessage(
       "❌ لم أتمكن من الاتصال بالذكاء الاصطناعي الآن\nحاول مجدداً بعد قليل",
       threadID, messageID
     );
   }
 
-  history.push({ role: "assistant", content: reply });
+  history.push({ role: "assistant", content: result.text });
   if (history.length > MAX_HISTORY) history.splice(0, history.length - MAX_HISTORY);
   userHistories.set(senderID, history);
 
   return api.sendMessage(
-    `🤖 ${reply}\n\n─────────────\n⚡ ${provider}`,
+    `🤖 ${result.text}\n\n─────────────\n⚡ ${result.provider}`,
     threadID, messageID
   );
 };
