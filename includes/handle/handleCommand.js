@@ -44,10 +44,21 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
       return api.sendMessage('NDH مجموعة المطورين فقط يقدرون يستخدمون البوت', threadID, messageID);
     }
 
-    const dataAdbox = require('./../../modules/commands/cache/data.json');
-    var threadInf = (threadInfo.get(threadID) || await Threads.getInfo(threadID));
-    const findd = threadInf.adminIDs.find(el => el.id == senderID);
-    if (dataAdbox.adminbox.hasOwnProperty(threadID) && dataAdbox.adminbox[threadID] == true && !ADMINBOT.includes(senderID) && !findd && event.isGroup == true && !NDH.includes(senderID)) {
+    // FIX 1: Reload data.json fresh each time (not cached by require) to get latest adminbox state
+    let dataAdbox = { adminbox: {} };
+    try {
+      const dataAdboxPath = path.resolve(__dirname, './../../modules/commands/cache/data.json');
+      dataAdbox = JSON.parse(fs.readFileSync(dataAdboxPath, 'utf8'));
+    } catch (e) {}
+
+    // FIX 2: Guard against threadInfo returning {} (truthy empty object with no adminIDs)
+    let threadInf = threadInfo.get(threadID);
+    if (!threadInf || !threadInf.adminIDs) {
+      try { threadInf = await Threads.getInfo(threadID); } catch(e) { threadInf = { adminIDs: [] }; }
+    }
+    const findd = (threadInf.adminIDs || []).find(el => el.id == senderID);
+
+    if (dataAdbox.adminbox && dataAdbox.adminbox.hasOwnProperty(threadID) && dataAdbox.adminbox[threadID] == true && !ADMINBOT.includes(senderID) && !findd && event.isGroup == true && !NDH.includes(senderID)) {
       return api.sendMessage('أدمن الكروب فقط يقدر يستخدم البوت هنا', event.threadID, event.messageID);
     }
 
@@ -131,8 +142,12 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
       }
 
     var permssion = 0;
-    var threadInfoo = (threadInfo.get(threadID) || await Threads.getInfo(threadID));
-    const find = threadInfoo.adminIDs.find(el => el.id == senderID);
+    // FIX 3: Guard against threadInfoo.adminIDs being undefined (same root cause as FIX 2)
+    let threadInfoo = threadInfo.get(threadID);
+    if (!threadInfoo || !threadInfoo.adminIDs) {
+      try { threadInfoo = await Threads.getInfo(threadID); } catch(e) { threadInfoo = { adminIDs: [] }; }
+    }
+    const find = (threadInfoo.adminIDs || []).find(el => el.id == senderID);
     if (ADMINBOT.includes(senderID.toString())) permssion = 3;
     else if (NDH.includes(senderID.toString())) permssion = 2;
     else if (!ADMINBOT.includes(senderID) && find) permssion = 1;
