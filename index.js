@@ -17,7 +17,7 @@ app.use(express.json());
 var gio = moment.tz('Asia/Ho_Chi_Minh').format('HH:mm:ss || D/MM/YYYY');
 
 // ── جلب أحدث بيانات اللاعبين من GitHub عند الإطلاق ──────────────────────
-syncFromGitHub().catch(() => {});
+// syncFromGitHub سيُستدعى داخل setTimeout بعد التأكد من الإعداد
 
 // ── حقن الكوكيز عبر متغيرات البيئة (للحساب الأول فقط) ───────────────────
 (function () {
@@ -130,7 +130,15 @@ logger('Multi-account mode active', 'UPDATE');
 startAutoBackup(5 * 60 * 1000);
 
 // ── إطلاق جميع الحسابات ───────────────────────────────────────────────────
-setTimeout(async () => {
+(async () => {
+  try {
+    logger('جاري جلب أحدث البيانات من GitHub...', 'SYNC');
+    await syncFromGitHub();
+    logger('تم جلب البيانات بنجاح', 'SYNC');
+  } catch (e) {
+    logger('تحذير: فشل جلب البيانات من GitHub — ' + e.message, 'SYNC');
+  }
+
   rainbow.render();
   console.log(rainbow.frame());
   logger('Loading source code', 'LOAD');
@@ -139,7 +147,7 @@ setTimeout(async () => {
   logger(`Found ${appstateFiles.length} account(s): ${appstateFiles.join(', ')}`, 'MULTI-ACCOUNT');
 
   for (let i = 0; i < appstateFiles.length; i++) {
-    if (i > 0) await new Promise(r => setTimeout(r, 3000)); // فترة انتظار بين كل حساب
+    if (i > 0) await new Promise(r => setTimeout(r, 3000));
     startBot(appstateFiles[i]);
   }
-}, 70);
+})();
