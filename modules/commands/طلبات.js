@@ -1,6 +1,6 @@
 module.exports.config = {
   name: "طلبات",
-  version: "1.0.0",
+  version: "2.0.0",
   hasPermssion: 3,
   credits: "FANG",
   description: "عرض القروبات الموجودة في قائمة الانتظار والسبام",
@@ -12,36 +12,60 @@ module.exports.config = {
 module.exports.run = async function({ api, event }) {
   const { threadID, messageID } = event;
 
-  api.sendMessage("🔄 جاري جلب القروبات المعلقة...", threadID, async (err, info) => {
-    try {
-      const pending = await new Promise((res, rej) =>
-        api.getThreadList(25, null, ["PENDING"], (e, t) => e ? rej(e) : res(t || []))
-      );
-      const spam = await new Promise((res, rej) =>
-        api.getThreadList(25, null, ["SPAM"], (e, t) => e ? rej(e) : res(t || []))
-      ).catch(() => []);
-
-      let text = "📋 ┌── القروبات المعلقة ──┐\n\n";
-
-      if (pending.length === 0 && spam.length === 0) {
-        text += "✅ لا توجد قروبات معلقة\n";
-      } else {
-        if (pending.length > 0) {
-          text += `📥 الانتظار (${pending.length}):\n`;
-          pending.forEach((t, i) => text += `${i+1}. ${t.threadName || t.threadID}\n   🔑 ${t.threadID}\n\n`);
-        }
-        if (spam.length > 0) {
-          text += `⚠️ السبام (${spam.length}):\n`;
-          spam.forEach((t, i) => text += `${i+1}. ${t.threadName || t.threadID}\n   🔑 ${t.threadID}\n\n`);
-        }
+  // دالة مساعدة: getThreadList مع timeout 8 ثوانٍ
+  function getList(tag) {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve([]), 8000);
+      try {
+        api.getThreadList(25, null, [tag], (err, list) => {
+          clearTimeout(timer);
+          resolve(!err && Array.isArray(list) ? list : []);
+        });
+      } catch(e) {
+        clearTimeout(timer);
+        resolve([]);
       }
+    });
+  }
 
-      text += `└────────────────────────┘`;
-      if (info?.messageID) api.unsendMessage(info.messageID);
-      api.sendMessage(text, threadID, messageID);
-    } catch(e) {
-      if (info?.messageID) api.unsendMessage(info.messageID);
-      api.sendMessage("❌ تعذر جلب القروبات المعلقة\n" + e.message, threadID, messageID);
-    }
-  });
+  const [pending, spam] = await Promise.all([
+    getList('PENDING'),
+    getList('SPAM')
+  ]);
+
+  // فلتر: قروبات فقط
+  const pGroups = pending.filter(t => t.isGroup);
+  const sGroups = spam.filter(t => t.isGroup);
+
+  if (pGroups.length === 0 && sGroups.length === 0)
+    return api.sendMessage('✅ لا توجد قروبات معلقة أو سبام', threadID, messageID);
+
+  let text = '📋 ┌── القروبات المعلقة ──┐
+
+';
+
+  if (pGroups.length > 0) {
+    text += `📥 الانتظار (${pGroups.length}):
+`;
+    pGroups.forEach((t, i) => {
+      text += `${i+1}. ${t.threadName || 'بدون اسم'}
+   🔑 ${t.threadID}
+
+`;
+    });
+  }
+
+  if (sGroups.length > 0) {
+    text += `⚠️ السبام (${sGroups.length}):
+`;
+    sGroups.forEach((t, i) => {
+      text += `${i+1}. ${t.threadName || 'بدون اسم'}
+   🔑 ${t.threadID}
+
+`;
+    });
+  }
+
+  text += '└────────────────────────┘';
+  return api.sendMessage(text, threadID, messageID);
 };
