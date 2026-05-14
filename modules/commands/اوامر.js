@@ -1,98 +1,90 @@
 module.exports.config = {
   name: "اوامر",
-  version: "2.0.0",
+  version: "3.0.0",
   hasPermssion: 0,
   credits: "FANG",
-  description: "عرض جميع الأوامر المتاحة مجمّعة حسب الفئة",
+  description: "عرض قائمة جميع الأوامر",
   commandCategory: "معلومات",
-  usages: "اوامر | اوامر [اسم الأمر]",
+  usages: "اوامر | اوامر [اسم]",
   cooldowns: 5
 };
 
-const PERM_LABELS = {
-  0: "",
-  1: " 🔒أدمن غروب",
-  2: " 🔐مطوّر",
-  3: " 👑أدمن البوت"
+// خريطة الأسماء الإنجليزية لكل أمر
+const EN = {
+  'ادمن':   'Admin',
+  'ادمنز':  'Admins',
+  'اسم':    'Name',
+  'اضافة':  'Add',
+  'اغلاق':  'Lock',
+  'اغاني':  'Music',
+  'طرد':    'Kick',
+  'طلبات':  'Requests',
+  'فتح':    'Unlock',
+  'فانغ':   'Fang',
+  'قروبات': 'Groups',
+  'كنية':   'Nickname',
+  'مدح':    'Praise',
+  'مغادرة': 'Out',
+  'توسيع':  'Domain',
+  'تيك':    'TikTok',
+  'وقت':    'Time',
+  'uptime': 'Uptime',
+  'اوامر':  'Commands',
+  'غزل':    'Flirt',
 };
 
-module.exports.run = async function({ api, event, args, permssion }) {
+// تحويل نص إلى بولد مشطوب
+function bs(text) {
+  const BU = {
+    'a':'𝗮','b':'𝗯','c':'𝗰','d':'𝗱','e':'𝗲','f':'𝗳','g':'𝗴','h':'𝗵',
+    'i':'𝗶','j':'𝗷','k':'𝗸','l':'𝗹','m':'𝗺','n':'𝗻','o':'𝗼','p':'𝗽',
+    'q':'𝗾','r':'𝗿','s':'𝘀','t':'𝘁','u':'𝘂','v':'𝘃','w':'𝘄','x':'𝘅',
+    'y':'𝘆','z':'𝘇','A':'𝗔','B':'𝗕','C':'𝗖','D':'𝗗','E':'𝗘','F':'𝗙',
+    'G':'𝗚','H':'𝗛','I':'𝗜','J':'𝗝','K':'𝗞','L':'𝗟','M':'𝗠','N':'𝗡',
+    'O':'𝗢','P':'𝗣','Q':'𝗤','R':'𝗥','S':'𝗦','T':'𝗧','U':'𝗨','V':'𝗩',
+    'W':'𝗪','X':'𝗫','Y':'𝗬','Z':'𝗭'
+  };
+  return text.split('').map(c => (BU[c] || c) + '\u0336').join('');
+}
+
+module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID } = event;
   const { commands } = global.client;
 
-  // ── عرض تفاصيل أمر واحد ─────────────────────────────────────────────────
+  // ── تفاصيل أمر واحد ─────────────────────────────────────────────────────
   if (args[0]) {
-    const target = args[0].trim().toLowerCase();
+    const target = args.join(' ').trim().toLowerCase();
     const cmd = commands.get(target);
     if (!cmd) {
       return api.sendMessage(
-        `❌ الأمر "${target}" غير موجود\n\nاكتب: اوامر — لرؤية جميع الأوامر`,
+        `❌ الأمر "${target}" غير موجود\n\nاكتب: اوامر — للقائمة الكاملة`,
         threadID, messageID
       );
     }
     const c = cmd.config;
-    const perm = PERM_LABELS[c.hasPermssion] || "";
-    const lines = [
-      `📌 أمر: ${c.name}${perm}`,
-      `📝 الوصف: ${c.description || "—"}`,
-      `🔧 الاستخدام: ${c.usages || c.name}`,
-      `📂 الفئة: ${c.commandCategory || "عام"}`,
-      `⏱ كولداون: ${c.cooldowns || 1} ثانية`,
-      `📦 الإصدار: v${c.version || "1.0.0"}`
-    ];
-    return api.sendMessage(lines.join("\n"), threadID, messageID);
+    const PERM = ['الجميع', '🔒 أدمن غروب', '🔐 مطوّر', '👑 أدمن البوت'];
+    return api.sendMessage(
+      `⃟─⌯ 𝗙̸𝗮𝗻𝗴 𖥻 〣\n\n` +
+      `𝗡𝗮𝗺𝗲: ${c.name}\n` +
+      `𝗗𝗲𝘀𝗰: ${c.description || '—'}\n` +
+      `𝗨𝘀𝗮𝗴𝗲: ${c.usages || c.name}\n` +
+      `𝗣𝗲𝗿𝗺: ${PERM[c.hasPermssion] || '—'}\n` +
+      `𝗖𝗱: ${c.cooldowns || 1}s`,
+      threadID, messageID
+    );
   }
 
-  // ── عرض كل الأوامر مجمّعة ───────────────────────────────────────────────
-  const userPerm = permssion || 0;
+  // ── قائمة كل الأوامر ────────────────────────────────────────────────────
+  let text = '⃟─⌯ 𝗙̸𝅥͎̳͡͠𝗮̸̱𝗻̀𝗴˟̲ 𝄋 𝗖̶𝗼̶𝗺̶𝗺̶𝗮̶𝗻̶𝗱̶𝘀 𖥻 〣\n\n';
 
-  // تجميع الأوامر حسب الفئة
-  const categories = {};
   for (const [, cmd] of commands) {
-    const c = cmd.config;
-    // إخفاء الأوامر التي تتطلب صلاحية أعلى من صلاحية المستخدم
-    // (اعرض الكل للمستخدمين العاديين لكن اشر للمقيّدة)
-    const cat = c.commandCategory || "عام";
-    if (!categories[cat]) categories[cat] = [];
-    categories[cat].push(c);
+    const name = cmd.config.name;
+    const en   = EN[name] || name;
+    text += `─⃟𖥻${bs(en)}\n`;
   }
 
-  const catOrder = ["معلومات", "إدارة", "أدوات", "ذكاء اصطناعي", "ترفيه", "عام"];
-  const sortedCats = [
-    ...catOrder.filter(c => categories[c]),
-    ...Object.keys(categories).filter(c => !catOrder.includes(c))
-  ];
-
-  const botName = global.config?.BOTNAME || "Momo";
-  const total   = commands.size;
-
-  let text = `📋 ┌── أوامر ${botName} (${total}) ──┐\n\n`;
-
-  for (const cat of sortedCats) {
-    const cmds = categories[cat];
-    if (!cmds || cmds.length === 0) continue;
-
-    const catEmoji = {
-      "معلومات":      "📊",
-      "إدارة":        "⚙️",
-      "أدوات":        "🛠",
-      "ذكاء اصطناعي": "🤖",
-      "ترفيه":        "🎭",
-      "عام":          "💬"
-    }[cat] || "•";
-
-    text += `${catEmoji} ${cat} (${cmds.length})\n`;
-
-    for (const c of cmds) {
-      const lock = c.hasPermssion > 0 ? ` ${["","🔒","🔐","👑"][c.hasPermssion]||"🔒"}` : "";
-      text += `  • ${c.name}${lock}\n`;
-    }
-    text += "\n";
-  }
-
-  text += `└─────────────────────────────┘\n`;
-  text += `💡 اوامر [اسم] — لتفاصيل أمر معيّن\n`;
-  text += `🔒 = أدمن غروب  👑 = أدمن البوت`;
+  text += '\n━━━━━━━━━━━━━━\n';
+  text += '𝗖𝗼𝗺𝗺𝗮𝗻𝗱 [𝗡𝗮𝗺𝗲] = 𝗵𝗲𝗹𝗽𝗶𝗻𝗴';
 
   return api.sendMessage(text, threadID, messageID);
 };
