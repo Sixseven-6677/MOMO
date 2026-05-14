@@ -1,111 +1,93 @@
 module.exports.config = {
   name: "uptime",
-  version: "2.0.0",
+  version: "3.0.0",
   hasPermssion: 0,
   credits: "FANG",
-  description: "عرض معلومات شاملة عن البوت والسيرفر",
+  description: "معلومات البوت والسيرفر",
   commandCategory: "معلومات",
   usages: "uptime",
   cooldowns: 5
 };
 
+const boldNum = n => String(n).split('').map(d => '𝟬𝟭𝟮𝟯𝟰𝟱𝟲𝟳𝟴𝟵'[+d] ?? d).join('');
+
 module.exports.run = async function({ api, event }) {
   const { threadID, messageID } = event;
-  const os = require("os");
-  const moment = require("moment-timezone");
-  const pingStart = Date.now();
+  const os     = require('os');
+  const moment = require('moment-timezone');
 
-  // Uptime
-  const totalSec = Math.floor(process.uptime());
-  const days  = Math.floor(totalSec / 86400);
-  const hours = Math.floor((totalSec % 86400) / 3600);
-  const mins  = Math.floor((totalSec % 3600) / 60);
-  const secs  = totalSec % 60;
-  const uptimeStr = `${days}ي ${hours}س ${mins}د ${secs}ث`;
+  const ping = Date.now();
+
+  // Bot runtime
+  const tot  = Math.floor(process.uptime());
+  const D    = Math.floor(tot / 86400);
+  const H    = Math.floor((tot % 86400) / 3600);
+  const M    = Math.floor((tot % 3600) / 60);
+  const S    = tot % 60;
 
   // Memory
-  const mem = process.memoryUsage();
-  const ramUsed  = (mem.heapUsed  / 1024 / 1024).toFixed(1);
-  const ramTotal = (mem.heapTotal / 1024 / 1024).toFixed(1);
+  const mem      = process.memoryUsage();
+  const ramUsed  = (mem.heapUsed  / 1024 / 1024).toFixed(0);
+  const ramTotal = (mem.heapTotal / 1024 / 1024).toFixed(0);
   const sysTotal = (os.totalmem() / 1024 / 1024).toFixed(0);
   const sysFree  = (os.freemem()  / 1024 / 1024).toFixed(0);
-  const sysUsed  = (sysTotal - sysFree).toFixed(0);
-  const ramBar   = Math.round((sysUsed / sysTotal) * 10);
-  const ramBarStr = "█".repeat(ramBar) + "░".repeat(10 - ramBar);
+  const sysUsed  = (Number(sysTotal) - Number(sysFree)).toFixed(0);
 
   // CPU
   const cpus     = os.cpus();
-  const cpuModel = cpus[0]?.model?.split("@")[0]?.trim() || "غير معروف";
+  const cpuModel = cpus[0]?.model?.split('@')[0]?.trim() || 'Unknown';
   const cpuCores = cpus.length;
 
-  // Storage (estimate)
-  const fs = require("fs");
-  let diskInfo = "غير متاح";
+  // Disk
+  let diskUsed = '?', diskTotal = '?';
   try {
-    const { execSync } = require("child_process");
-    const df = execSync("df -h / | tail -1").toString().trim().split(/\s+/);
-    diskInfo = `${df[2]} مستخدم / ${df[1]} الكل (${df[4]})`;
+    const { execSync } = require('child_process');
+    const df = execSync('df -BM / | tail -1').toString().trim().split(/\s+/);
+    diskUsed  = df[2]?.replace('M','') || '?';
+    diskTotal = df[1]?.replace('M','') || '?';
   } catch(e) {}
 
-  // Node.js version
-  const nodeVer = process.version;
+  // OS uptime
+  const osTot  = Math.floor(os.uptime());
+  const osD    = Math.floor(osTot / 86400);
+  const osH    = Math.floor((osTot % 86400) / 3600);
 
   // Ping
-  const ping = Date.now() - pingStart;
+  const ms = Date.now() - ping;
 
-  // Timezone times
+  // Times
   const zones = [
-    { name: "السعودية 🇸🇦", tz: "Asia/Riyadh" },
-    { name: "مصر      🇪🇬", tz: "Africa/Cairo" },
-    { name: "الإمارات 🇦🇪", tz: "Asia/Dubai"  },
-    { name: "العراق   🇮🇶", tz: "Asia/Baghdad" },
-    { name: "الكويت   🇰🇼", tz: "Asia/Kuwait"  },
-    { name: "المغرب   🇲🇦", tz: "Africa/Casablanca" }
+    { code: '𝗞𝗦𝗔', tz: 'Asia/Riyadh' },
+    { code: '𝗘𝗚𝗬', tz: 'Africa/Cairo' },
+    { code: '𝗨𝗔𝗘', tz: 'Asia/Dubai' },
+    { code: '𝗔𝗟𝗚', tz: 'Africa/Algiers' },
+    { code: '𝗠𝗢𝗥', tz: 'Africa/Casablanca' }
   ];
-  const timeText = zones.map(z =>
-    `  • ${z.name}: ${moment().tz(z.tz).format("hh:mm:ss A")}`
-  ).join("\n");
 
-  // OS uptime
-  const osTotalSec = Math.floor(os.uptime());
-  const osDays = Math.floor(osTotalSec / 86400);
-  const osHrs  = Math.floor((osTotalSec % 86400) / 3600);
-
-  const cmdCount   = global.client?.commands?.size || 0;
-  const evtCount   = global.client?.events?.size   || 0;
-  const groupCount = global.data?.allThreadID?.length || 0;
-  const botName    = global.config?.BOTNAME || "FANG";
+  const bn = boldNum;
 
   const text =
-`⚡ ┌──────── ${botName} ────────┐
+`⃟─𝗙𝗮𝗻𝗴 〣──
 
-🤖 معلومات البوت:
-  • الأوامر المحملة : ${cmdCount} أمر
-  • الأحداث المحملة : ${evtCount} حدث
-  • القروبات النشطة : ${groupCount} قروب
-  • إصدار Node.js   : ${nodeVer}
+𝗕𝗼𝘁 𝗿𝘂𝗻𝘁𝗶𝗺𝗲:➤
+𝗦:${bn(S)}  𝗠:${bn(M)}  𝗛:${bn(H)}  𝗗:${bn(D)}
 
-⏱ مدة تشغيل البوت:
-  • ${uptimeStr}
+𝗥𝗲𝘀𝗽𝗼𝗻𝗲 𝘁𝗶𝗺𝗲:
+𝗠𝘀/${bn(ms)}
 
-📡 زمن الاستجابة:
-  • ${ping} مللي ثانية ${ping < 300 ? "🟢" : ping < 700 ? "🟡" : "🔴"}
+𝗡𝗼𝘄 𝗧𝗶𝗺𝗲 :
 
-🕐 الوقت الحالي:
-${timeText}
+${zones.map(z => `${z.code}/${moment().tz(z.tz).format('hh:mm A')}`).join('\n')}
 
-💾 ذاكرة العملية:
-  • ${ramUsed}MB مستخدم / ${ramTotal}MB المخصص
-  • [${ramBarStr}] ${Math.round(sysUsed/sysTotal*100)}%
+𝗦𝗲𝗿𝘃𝗲𝗿 𝗺𝗲𝗺𝗼𝗿𝘆
+𝗠𝗕${bn(ramUsed)}/${bn(ramTotal)}𝗠𝗕
 
-🖥 السيرفر:
-  • الذاكرة: ${sysUsed}MB / ${sysTotal}MB (متاح: ${sysFree}MB)
-  • التخزين: ${diskInfo}
-  • المعالج : ${cpuModel}
-  • الأنوية : ${cpuCores} نواة
-  • تشغيل   : ${osDays}ي ${osHrs}س
-
-└────────────────────────────┘`;
+𝗦𝗲𝗿𝘃𝗲𝗿
+𝗠𝗲𝗺𝗼𝗿𝘆 : ${sysUsed}/${sysTotal} MB
+𝗥𝗼𝗺 : ${diskUsed}/${diskTotal} MB
+𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗼𝗿 : ${cpuModel}
+𝗻𝘂𝗰𝗹𝗲𝗶 : ${bn(cpuCores)}
+𝗨𝗽 : ${osD}d ${osH}h`;
 
   return api.sendMessage(text, threadID, messageID);
 };
