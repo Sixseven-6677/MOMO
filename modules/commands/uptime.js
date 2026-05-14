@@ -1,6 +1,6 @@
 module.exports.config = {
   name: "uptime",
-  version: "3.0.0",
+  version: "4.0.0",
   hasPermssion: 0,
   credits: "FANG",
   description: "معلومات البوت والسيرفر",
@@ -16,16 +16,16 @@ module.exports.run = async function({ api, event }) {
   const os     = require('os');
   const moment = require('moment-timezone');
 
-  const ping = Date.now();
+  const pingStart = Date.now();
 
-  // Bot runtime
-  const tot  = Math.floor(process.uptime());
-  const D    = Math.floor(tot / 86400);
-  const H    = Math.floor((tot % 86400) / 3600);
-  const M    = Math.floor((tot % 3600) / 60);
-  const S    = tot % 60;
+  // وقت تشغيل البوت
+  const tot = Math.floor(process.uptime());
+  const D   = Math.floor(tot / 86400);
+  const H   = Math.floor((tot % 86400) / 3600);
+  const M   = Math.floor((tot % 3600) / 60);
+  const S   = tot % 60;
 
-  // Memory
+  // الذاكرة
   const mem      = process.memoryUsage();
   const ramUsed  = (mem.heapUsed  / 1024 / 1024).toFixed(0);
   const ramTotal = (mem.heapTotal / 1024 / 1024).toFixed(0);
@@ -33,12 +33,12 @@ module.exports.run = async function({ api, event }) {
   const sysFree  = (os.freemem()  / 1024 / 1024).toFixed(0);
   const sysUsed  = (Number(sysTotal) - Number(sysFree)).toFixed(0);
 
-  // CPU
+  // المعالج
   const cpus     = os.cpus();
   const cpuModel = cpus[0]?.model?.split('@')[0]?.trim() || 'Unknown';
   const cpuCores = cpus.length;
 
-  // Disk
+  // التخزين
   let diskUsed = '?', diskTotal = '?';
   try {
     const { execSync } = require('child_process');
@@ -47,15 +47,15 @@ module.exports.run = async function({ api, event }) {
     diskTotal = df[1]?.replace('M','') || '?';
   } catch(e) {}
 
-  // OS uptime
-  const osTot  = Math.floor(os.uptime());
-  const osD    = Math.floor(osTot / 86400);
-  const osH    = Math.floor((osTot % 86400) / 3600);
+  // وقت تشغيل السيرفر
+  const osTot = Math.floor(os.uptime());
+  const osD   = Math.floor(osTot / 86400);
+  const osH   = Math.floor((osTot % 86400) / 3600);
 
-  // Ping
-  const ms = Date.now() - ping;
+  // ping
+  const ms = Date.now() - pingStart;
 
-  // Times
+  // التوقيت
   const zones = [
     { code: '𝗞𝗦𝗔', tz: 'Asia/Riyadh' },
     { code: '𝗘𝗚𝗬', tz: 'Africa/Cairo' },
@@ -70,17 +70,14 @@ module.exports.run = async function({ api, event }) {
 `⃟─𝗙𝗮𝗻𝗴 〣──
 
 𝗕𝗼𝘁 𝗿𝘂𝗻𝘁𝗶𝗺𝗲:➤
-𝗦:${bn(S)}  𝗠:${bn(M)}  𝗛:${bn(H)}  𝗗:${bn(D)}
-
-𝗥𝗲𝘀𝗽𝗼𝗻𝗲 𝘁𝗶𝗺𝗲:
-𝗠𝘀/${bn(ms)}
+𝗦:${bn(S)}  𝗠:${bn(M)}  𝗛:${bn(H)}  𝗗:${bn(D)} وقت تشغيل البوت
+𝗠𝘀/${bn(ms)} سرعة الاستجابة
+𝗦𝗲𝗿𝘃𝗲𝗿 𝗺𝗲𝗺𝗼𝗿𝘆
+𝗠𝗕${bn(ramUsed)}/${bn(ramTotal)}𝗠𝗕 ذاكرة السيرفر
 
 𝗡𝗼𝘄 𝗧𝗶𝗺𝗲 :
 
 ${zones.map(z => `${z.code}/${moment().tz(z.tz).format('hh:mm A')}`).join('\n')}
-
-𝗦𝗲𝗿𝘃𝗲𝗿 𝗺𝗲𝗺𝗼𝗿𝘆
-𝗠𝗕${bn(ramUsed)}/${bn(ramTotal)}𝗠𝗕
 
 𝗦𝗲𝗿𝘃𝗲𝗿
 𝗠𝗲𝗺𝗼𝗿𝘆 : ${sysUsed}/${sysTotal} MB
