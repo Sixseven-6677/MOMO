@@ -1,6 +1,6 @@
 module.exports.config = {
   name: "uptime",
-  version: "4.0.0",
+  version: "5.0.0",
   hasPermssion: 0,
   credits: "FANG",
   description: "معلومات البوت والسيرفر",
@@ -9,13 +9,12 @@ module.exports.config = {
   cooldowns: 5
 };
 
-const boldNum = n => String(n).split('').map(d => '𝟬𝟭𝟮𝟯𝟰𝟱𝟲𝟳𝟴𝟵'[+d] ?? d).join('');
+const boldNum = n => String(Math.floor(Number(n))).split('').map(d => '𝟬𝟭𝟮𝟯𝟰𝟱𝟲𝟳𝟴𝟵'[+d] ?? d).join('');
 
 module.exports.run = async function({ api, event }) {
   const { threadID, messageID } = event;
   const os     = require('os');
   const moment = require('moment-timezone');
-
   const pingStart = Date.now();
 
   // وقت تشغيل البوت
@@ -25,29 +24,19 @@ module.exports.run = async function({ api, event }) {
   const M   = Math.floor((tot % 3600) / 60);
   const S   = tot % 60;
 
-  // الذاكرة
+  // ذاكرة العملية فقط (دقيقة في containers)
   const mem      = process.memoryUsage();
-  const ramUsed  = (mem.heapUsed  / 1024 / 1024).toFixed(0);
-  const ramTotal = (mem.heapTotal / 1024 / 1024).toFixed(0);
-  const sysTotal = (os.totalmem() / 1024 / 1024).toFixed(0);
-  const sysFree  = (os.freemem()  / 1024 / 1024).toFixed(0);
-  const sysUsed  = (Number(sysTotal) - Number(sysFree)).toFixed(0);
+  const heapUsed  = (mem.heapUsed  / 1024 / 1024).toFixed(0);   // MB
+  const heapTotal = (mem.heapTotal / 1024 / 1024).toFixed(0);   // MB
+  const rss       = (mem.rss       / 1024 / 1024).toFixed(0);   // MB كل العملية
 
   // المعالج
   const cpus     = os.cpus();
-  const cpuModel = cpus[0]?.model?.split('@')[0]?.trim() || 'Unknown';
+  const cpuModel = (cpus[0]?.model || 'Unknown')
+    .replace(/\(.*?\)/g, '').trim().slice(0, 28);
   const cpuCores = cpus.length;
 
-  // التخزين
-  let diskUsed = '?', diskTotal = '?';
-  try {
-    const { execSync } = require('child_process');
-    const df = execSync('df -BM / | tail -1').toString().trim().split(/\s+/);
-    diskUsed  = df[2]?.replace('M','') || '?';
-    diskTotal = df[1]?.replace('M','') || '?';
-  } catch(e) {}
-
-  // وقت تشغيل السيرفر
+  // وقت تشغيل النظام
   const osTot = Math.floor(os.uptime());
   const osD   = Math.floor(osTot / 86400);
   const osH   = Math.floor((osTot % 86400) / 3600);
@@ -73,15 +62,14 @@ module.exports.run = async function({ api, event }) {
 𝗦:${bn(S)}  𝗠:${bn(M)}  𝗛:${bn(H)}  𝗗:${bn(D)} وقت تشغيل البوت
 𝗠𝘀/${bn(ms)} سرعة الاستجابة
 𝗦𝗲𝗿𝘃𝗲𝗿 𝗺𝗲𝗺𝗼𝗿𝘆
-𝗠𝗕${bn(ramUsed)}/${bn(ramTotal)}𝗠𝗕 ذاكرة السيرفر
+𝗠𝗕${bn(heapUsed)}/${bn(heapTotal)}𝗠𝗕 ذاكرة السيرفر
 
 𝗡𝗼𝘄 𝗧𝗶𝗺𝗲 :
 
 ${zones.map(z => `${z.code}/${moment().tz(z.tz).format('hh:mm A')}`).join('\n')}
 
 𝗦𝗲𝗿𝘃𝗲𝗿
-𝗠𝗲𝗺𝗼𝗿𝘆 : ${sysUsed}/${sysTotal} MB
-𝗥𝗼𝗺 : ${diskUsed}/${diskTotal} MB
+𝗠𝗲𝗺𝗼𝗿𝘆 : ${rss}MB / ${heapTotal}MB
 𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗼𝗿 : ${cpuModel}
 𝗻𝘂𝗰𝗹𝗲𝗶 : ${bn(cpuCores)}
 𝗨𝗽 : ${osD}d ${osH}h`;
