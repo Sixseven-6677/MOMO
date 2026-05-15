@@ -66,14 +66,20 @@ function startBot(appstateFile, message) {
   child.on('close', async (codeExit) => {
     botInstances.delete(appstateFile);
     const x = String(codeExit);
+    const ts = new Date().toLocaleTimeString('ar');
     if (codeExit === 1) {
-      // تأخير 8 ثوانٍ لمنع تراكم عمليات MQTT المتوازية
-      await new Promise(r => setTimeout(r, 8000));
+      logger(`[${appstateFile}] ⚠️ توقف (code 1) الساعة ${ts} — إعادة التشغيل بعد 15 ثانية`, 'RESTART');
+      await new Promise(r => setTimeout(r, 15000));
       return startBot(appstateFile, 'RESTARTING...');
     } else if (x.startsWith('2')) {
       const delay = parseInt(x.slice(1)) * 1000 || 3000;
+      logger(`[${appstateFile}] إعادة تنشيط (code ${codeExit}) بعد ${delay/1000}s`, 'RESTART');
       await new Promise(r => setTimeout(r, delay));
       startBot(appstateFile, 'Reactivating...');
+    } else if (codeExit === 0) {
+      logger(`[${appstateFile}] ⚪ خرج نظيفاً (code 0) — لن يُعاد التشغيل`, 'RESTART');
+    } else {
+      logger(`[${appstateFile}] ❓ كود خروج غير معروف: ${codeExit}`, 'RESTART');
     }
   });
 
@@ -129,7 +135,7 @@ console.log(rainbow.frame());
 logger('Multi-account mode active', 'UPDATE');
 
 // ── بدء النسخ الاحتياطي التلقائي كل 5 دقائق ──────────────────────────────
-startAutoBackup(5 * 60 * 1000);
+startAutoBackup(30 * 60 * 1000); // كل 30 دقيقة بدل 5
 
 // ── إطلاق جميع الحسابات ───────────────────────────────────────────────────
 (async () => {
