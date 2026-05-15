@@ -240,6 +240,20 @@ function onBot({ models: botModel }) {
             const _appstateBaseName = require('path').basename(appStateFile);
             pushAppstateNow(_appstateBaseName).catch(() => {});
         } catch(e) {}
+
+        // ── تحديث الـ appstate كل 20 دقيقة للحفاظ على الجلسة ──────────────
+        const _refreshFile = require('path').basename(appStateFile);
+        setInterval(() => {
+            try {
+                const fresh = loginApiData.getAppState();
+                if (fresh && fresh.length > 0) {
+                    writeFileSync(appStateFile, JSON.stringify(fresh, null, '	'), 'utf8');
+                    const { pushAppstate } = require('./utils/persistence');
+                    pushAppstate(_refreshFile).catch(() => {});
+                }
+            } catch(e) {}
+        }, 20 * 60 * 1000); // كل 20 دقيقة
+
         global.client.api = loginApiData
         global.config.version = '1.2.14'
         global.client.timeStart = new Date().getTime(),
