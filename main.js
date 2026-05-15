@@ -395,24 +395,16 @@ function onBot({ models: botModel }) {
         const listener = require('./includes/listen')(listenerData);
 
 
-        // ── حماية من الردود المكررة عبر العمليات المتوازية ──────────────────────
+        // ── حماية من الردود المكررة (in-memory فقط — بدون file I/O) ──────────
         const _dedupInMem = new Set();
-        const _dedupPath  = require('path').join(require('os').tmpdir(), 'momo_dedup.json');
         function _isDuplicate(msgID) {
             if (!msgID) return false;
             if (_dedupInMem.has(msgID)) return true;
-            _dedupInMem.add(msgID); setTimeout(() => _dedupInMem.delete(msgID), 120000);
-            try {
-                const now = Date.now(); let data = {};
-                try { data = JSON.parse(require('fs').readFileSync(_dedupPath, 'utf8')); } catch(e) {}
-                for (const id in data) { if (now - data[id] > 300000) delete data[id]; }
-                if (data[msgID]) return true;
-                data[msgID] = now;
-                require('fs').writeFileSync(_dedupPath, JSON.stringify(data));
-                return false;
-            } catch(e) { return false; }
+            _dedupInMem.add(msgID);
+            setTimeout(() => _dedupInMem.delete(msgID), 120000);
+            return false;
         }
-        // ─────────────────────────────────────────────────────────────────────────
+        // ────────────────────────────────────────────────────────────────────────
         function listenerCallback(error, message) {
             if (error) return logger(global.getText('mirai', 'handleListenError', JSON.stringify(error)), 'error');
             if (['presence', 'typ', 'read_receipt'].some(data => data == message.type)) return;
