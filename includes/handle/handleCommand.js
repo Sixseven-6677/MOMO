@@ -191,7 +191,8 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
       Obj.getText = getText2;
       usages = JSON.parse(fs.readFileSync(usgPath));
       fs.writeFileSync(usgPath, JSON.stringify(usages, null, 4));
-      try { api.sendTypingIndicator(threadID); } catch(e) {}
+      try { api.sendTypingIndicator(threadID, ()=>{}, event.isGroup); } catch(e) {}
+      await new Promise(r => setTimeout(r, 600));
       command.run(Obj);
       timestamps.set(senderID, dateNow);
       if (DeveloperMode == !![])
