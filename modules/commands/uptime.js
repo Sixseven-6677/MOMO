@@ -17,7 +17,9 @@ module.exports.run = async function({ api, event }) {
   const fs      = require('fs');
   const pingStart = Date.now();
 
-  const tot = Math.floor(process.uptime());
+  // ── uptime حقيقي من أول تشغيل البوت (لا يتأثر بإعادة التشغيل) ──────
+  const _startMs = parseInt(process.env.BOT_START_TIME || '0') || (Date.now() - process.uptime() * 1000);
+  const tot = Math.floor((Date.now() - _startMs) / 1000);
   const d   = Math.floor(tot / 86400);
   const h   = Math.floor((tot % 86400) / 3600);
   const m   = Math.floor((tot % 3600) / 60);
