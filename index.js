@@ -143,9 +143,6 @@ rainbow.render();
 console.log(rainbow.frame());
 logger('Multi-account mode active', 'UPDATE');
 
-// ── بدء النسخ الاحتياطي التلقائي ──────────────────────────────────────────
-startAutoBackup(30 * 60 * 1000);
-
 // ── إطلاق جميع الحسابات ───────────────────────────────────────────────────
 (async () => {
   try {
