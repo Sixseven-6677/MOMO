@@ -12,7 +12,7 @@ module.exports = function ({api ,models, Users, Threads, Currencies }) {
         threadID = String(threadID);
         if (userBanned.has(senderID) || threadBanned.has(threadID) || allowInbox == ![] && senderID == threadID) return;
         for (const [key, value] of events.entries()) {
-            if (value.config.eventType.indexOf(event.logMessageType) !== -1) {
+            if (value.config.eventType && value.config.eventType.indexOf(event.logMessageType) !== -1) {
                 const eventRun = events.get(key);
                 try {
                     const Obj = {};
