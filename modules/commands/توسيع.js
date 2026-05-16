@@ -2,6 +2,7 @@ const fs   = require("fs");
 const path = require("path");
 
 const dataPath = path.join(process.cwd(), "modules/commands/data/tawsi3.json");
+const DEFAULT_TIMEOUT = 30;
 
 function loadData() {
   try { return JSON.parse(fs.readFileSync(dataPath, "utf8")); }
@@ -15,145 +16,155 @@ function saveData(obj) {
   } catch(e) {}
 }
 
-const DEFAULT_MSG     = "👀 القروب نشط! هل تريد الانضمام؟ تواصل مع البوت 🤖";
-const DEFAULT_TIMEOUT = 30; // seconds
-
-// ── معالج الطابور — مُحسَّن بحماية deadlock ─────────────────────────────────
-function startProcessor(api, threadID) {
+function ensureGlobal() {
+  if (!global.tawsi3Data)    global.tawsi3Data    = {};
   if (!global.tawsi3Runtime) global.tawsi3Runtime = {};
-  const rt  = global.tawsi3Runtime[threadID];
-  const cfg = global.tawsi3Data && global.tawsi3Data[threadID];
-  if (!rt || rt.processing || !cfg || !cfg.active || rt.queue.length === 0) return;
-
-  rt.processing = true;
-
-  async function step() {
-    const r = global.tawsi3Runtime[threadID];
-    const c = global.tawsi3Data && global.tawsi3Data[threadID];
-
-    // توقف إذا فُرِّغ الطابور أو أُوقف التوسيع
-    if (!r || !c || !c.active || r.queue.length === 0) {
-      if (r) r.processing = false;
-      return;
-    }
-
-    r.queue.shift(); // أزل العنصر من الطابور
-
-    try {
-      await new Promise((resolve, reject) => {
-        api.sendMessage(c.msg || DEFAULT_MSG, threadID, (err) => {
-          if (err) reject(err); else resolve();
-        });
-      });
-    } catch(err) {
-      // فشل الإرسال — لا تعطّل المعالج، استمر بعد التأخير
-      console.error(`[توسيع] sendMessage error in ${threadID}:`, err?.error || err);
-    }
-
-    // انتظر قبل الرسالة التالية
-    const delay = ((c.timeout || DEFAULT_TIMEOUT) * 1000);
-    await new Promise(res => setTimeout(res, delay));
-
-    // تأكد أن التوسيع لا يزال نشطاً بعد الانتظار
-    const rAfter = global.tawsi3Runtime[threadID];
-    const cAfter = global.tawsi3Data && global.tawsi3Data[threadID];
-    if (!rAfter || !cAfter || !cAfter.active) {
-      if (rAfter) rAfter.processing = false;
-      return;
-    }
-
-    step(); // استمر بالمعالجة
-  }
-
-  step();
 }
 
-// ── Watchdog: يكشف deadlock كل دقيقتين ويُعيد تشغيل المعالج ───────────────
+// يحمّل بيانات الـ thread من الملف إذا لم تكن محمّلة في الذاكرة
+function ensureThread(threadID) {
+  ensureGlobal();
+  if (!global.tawsi3Data[threadID]) {
+    const saved = loadData();
+    if (saved[threadID]) {
+      global.tawsi3Data[threadID] = saved[threadID];
+    }
+  }
+  if (!global.tawsi3Runtime[threadID]) {
+    global.tawsi3Runtime[threadID] = { queue: [], processing: false, timer: null };
+  }
+}
+
+// المعالج — يرسل رسالة من الطابور ثم ينتظر المدة المحددة
+async function processQueue(api, threadID) {
+  const r = global.tawsi3Runtime[threadID];
+  const c = global.tawsi3Data[threadID];
+  if (!r || !c || !c.active) {
+    if (r) r.processing = false;
+    return;
+  }
+  if (r.queue.length === 0) {
+    r.processing = false;
+    return;
+  }
+
+  r.processing = true;
+  r.queue.shift();
+
+  try {
+    await new Promise((resolve, reject) => {
+      api.sendMessage(c.msg || "", threadID, (err) => {
+        if (err) reject(err); else resolve();
+      });
+    });
+  } catch(e) {}
+
+  const delay = ((global.tawsi3Data[threadID]?.timeout) || DEFAULT_TIMEOUT) * 1000;
+
+  r.timer = setTimeout(() => {
+    r.timer = null;
+    const r2 = global.tawsi3Runtime[threadID];
+    const c2 = global.tawsi3Data[threadID];
+    if (!r2 || !c2 || !c2.active) {
+      if (r2) r2.processing = false;
+      return;
+    }
+    r2.processing = false;
+    if (r2.queue.length > 0) processQueue(api, threadID);
+  }, delay);
+}
+
+function startProcessor(api, threadID) {
+  ensureThread(threadID);
+  const rt  = global.tawsi3Runtime[threadID];
+  const cfg = global.tawsi3Data[threadID];
+  if (!rt || rt.processing || !cfg?.active || rt.queue.length === 0) return;
+  processQueue(api, threadID);
+}
+
+// Watchdog: يكشف التوقف ويعيد التشغيل كل دقيقتين
 let _watchdogStarted = false;
 function startWatchdog(api) {
   if (_watchdogStarted) return;
   _watchdogStarted = true;
   setInterval(() => {
     try {
-      if (!global.tawsi3Runtime || !global.tawsi3Data) return;
+      ensureGlobal();
       for (const tid of Object.keys(global.tawsi3Data)) {
         const cfg = global.tawsi3Data[tid];
         const rt  = global.tawsi3Runtime[tid];
         if (!cfg?.active || !rt) continue;
-        // إذا الطابور فيه رسائل لكن المعالج واقف → أعد تشغيله
         if (rt.queue.length > 0 && !rt.processing) {
-          console.log(`[توسيع] Watchdog: restarting stalled processor for ${tid}`);
           startProcessor(api, tid);
         }
       }
     } catch(e) {}
-  }, 2 * 60 * 1000); // كل دقيقتين
+  }, 2 * 60 * 1000);
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 module.exports.config = {
   name: "توسيع",
-  version: "4.0.0",
+  version: "5.0.0",
   hasPermssion: 3,
   credits: "FANG",
-  description: "يخزن رسائل القروب في طابور ويرد عليها بالترتيب مع وقت قابل للتغيير",
+  description: "يرد على رسائل القروب بالترتيب مع وقت قابل للتغيير",
   commandCategory: "أدوات",
-  usages: "توسيع | توسيع رسالة [نص] | توسيع كسر",
+  usages: "توسيع | توسيع رسالة [نص] | توسيع وقت [ثوانٍ] | توسيع كسر",
   cooldowns: 3
 };
 
 module.exports.onLoad = function({ api } = {}) {
-  if (!global.tawsi3Data)    global.tawsi3Data    = {};
-  if (!global.tawsi3Runtime) global.tawsi3Runtime = {};
+  ensureGlobal();
   const saved = loadData();
   for (const tid in saved) {
     global.tawsi3Data[tid] = saved[tid];
     if (!global.tawsi3Runtime[tid]) {
-      global.tawsi3Runtime[tid] = { queue: [], processing: false };
+      global.tawsi3Runtime[tid] = { queue: [], processing: false, timer: null };
     }
   }
-  // ابدأ الـ Watchdog إذا كان api متاحاً (عند onLoad بعد login)
   if (api) startWatchdog(api);
 };
 
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID } = event;
-  if (!global.tawsi3Data)    global.tawsi3Data    = {};
-  if (!global.tawsi3Runtime) global.tawsi3Runtime = {};
-
-  // ابدأ الـ Watchdog من أول أمر يُنفَّذ
+  ensureGlobal();
   startWatchdog(api);
 
-  const data = loadData();
-  const sub  = (args[0] || "").trim();
+  const sub = (args[0] || "").trim();
 
-  // ── إيقاف ────────────────────────────────────────────────────────────────
+  // ── إيقاف ─────────────────────────────────────────────────────────────────
   if (sub === "كسر") {
-    if (!data[threadID]?.active)
+    ensureThread(threadID);
+    const isActive = global.tawsi3Data[threadID]?.active;
+    if (!isActive) {
       return api.sendMessage("⚠️ التوسيع غير مفعّل في هذا القروب", threadID, messageID);
-    data[threadID].active = false;
-    global.tawsi3Data[threadID] = { ...data[threadID] };
-    if (global.tawsi3Runtime[threadID]) {
-      global.tawsi3Runtime[threadID].queue      = [];
-      global.tawsi3Runtime[threadID].processing = false;
     }
+    global.tawsi3Data[threadID].active = false;
+    const rt = global.tawsi3Runtime[threadID];
+    if (rt) {
+      rt.queue      = [];
+      rt.processing = false;
+      if (rt.timer) { clearTimeout(rt.timer); rt.timer = null; }
+    }
+    const data = loadData();
+    if (data[threadID]) data[threadID].active = false;
     saveData(data);
-    return api.sendMessage("✅ تم إيقاف التوسيع في هذا القروب وتفريغ الطابور", threadID, messageID);
+    return api.sendMessage("✅ تم إيقاف التوسيع", threadID, messageID);
   }
 
   // ── تغيير الرسالة ─────────────────────────────────────────────────────────
   if (sub === "رسالة") {
     const msg = args.slice(1).join(" ").trim();
     if (!msg)
-      return api.sendMessage(
-        "❌ اكتب الرسالة بعد الأمر\nمثال: توسيع رسالة مرحباً بكم في قروبنا!",
-        threadID, messageID
-      );
-    if (!data[threadID]) data[threadID] = { active: false, msg: DEFAULT_MSG, timeout: DEFAULT_TIMEOUT };
+      return api.sendMessage("❌ اكتب الرسالة بعد الأمر\nمثال: توسيع رسالة مرحباً!", threadID, messageID);
+    ensureThread(threadID);
+    if (!global.tawsi3Data[threadID]) global.tawsi3Data[threadID] = { active: false, msg: "", timeout: DEFAULT_TIMEOUT };
+    global.tawsi3Data[threadID].msg = msg;
+    const data = loadData();
+    if (!data[threadID]) data[threadID] = { active: false, timeout: DEFAULT_TIMEOUT };
     data[threadID].msg = msg;
-    global.tawsi3Data[threadID] = { ...data[threadID] };
     saveData(data);
-    return api.sendMessage(`✅ تم تحديث رسالة التوسيع:\n\n"${msg}"`, threadID, messageID);
+    return api.sendMessage(`✅ تم تحديث الرسالة:\n\n"${msg}"`, threadID, messageID);
   }
 
   // ── تغيير الوقت ───────────────────────────────────────────────────────────
@@ -161,52 +172,52 @@ module.exports.run = async function({ api, event, args }) {
     const secs = parseInt(args[1]);
     if (isNaN(secs) || secs < 5 || secs > 3600)
       return api.sendMessage("❌ اكتب وقتاً بين 5 و3600 ثانية\nمثال: توسيع وقت 60", threadID, messageID);
-    if (!data[threadID]) data[threadID] = { active: false, msg: DEFAULT_MSG, timeout: DEFAULT_TIMEOUT };
+    ensureThread(threadID);
+    if (!global.tawsi3Data[threadID]) global.tawsi3Data[threadID] = { active: false, msg: "", timeout: DEFAULT_TIMEOUT };
+    global.tawsi3Data[threadID].timeout = secs;
+    const data = loadData();
+    if (!data[threadID]) data[threadID] = { active: false, msg: "" };
     data[threadID].timeout = secs;
-    global.tawsi3Data[threadID] = { ...data[threadID] };
     saveData(data);
-    return api.sendMessage(`✅ تم تحديث وقت التوسيع إلى ${secs} ثانية`, threadID, messageID);
+    return api.sendMessage(`✅ تم تحديث الوقت إلى ${secs} ثانية`, threadID, messageID);
   }
 
   // ── عرض الحالة إذا كان مفعّلاً ───────────────────────────────────────────
-  if (data[threadID]?.active) {
-    const t    = data[threadID].timeout || DEFAULT_TIMEOUT;
-    const qLen = global.tawsi3Runtime[threadID]?.queue?.length || 0;
-    const isProc = global.tawsi3Runtime[threadID]?.processing || false;
+  ensureThread(threadID);
+  if (global.tawsi3Data[threadID]?.active) {
+    const c = global.tawsi3Data[threadID];
     return api.sendMessage(
-      `⚠️ التوسيع مفعّل بالفعل في هذا القروب\n\n` +
-      `📢 الرسالة: "${data[threadID].msg || DEFAULT_MSG}"\n` +
-      `⏱️ الوقت بين الردود: ${t} ثانية\n` +
-      `📬 الرسائل في الطابور: ${qLen}\n` +
-      `⚙️ المعالج: ${isProc ? '🟢 يعمل' : '🔴 واقف'}\n\n` +
-      `لتغيير الرسالة: توسيع رسالة [النص]\n` +
-      `لتغيير الوقت: توسيع وقت [ثوانٍ]\n` +
-      `للإيقاف: توسيع كسر`,
+      `⚠️ التوسيع مفعّل بالفعل\n\n` +
+      `📢 الرسالة: "${c.msg || ""}"\n` +
+      `⏱️ الوقت بين الردود: ${c.timeout || DEFAULT_TIMEOUT} ثانية`,
       threadID, messageID
     );
   }
 
-  // ── تفعيل جديد ────────────────────────────────────────────────────────────
-  if (!data[threadID]) data[threadID] = { active: false, msg: DEFAULT_MSG, timeout: DEFAULT_TIMEOUT };
+  // ── تفعيل ─────────────────────────────────────────────────────────────────
+  const data = loadData();
+  if (!data[threadID]) data[threadID] = { active: false, msg: "", timeout: DEFAULT_TIMEOUT };
+  if (!data[threadID].msg) data[threadID].msg = "";
   data[threadID].active = true;
+
   global.tawsi3Data[threadID] = { ...data[threadID] };
   if (!global.tawsi3Runtime[threadID]) {
-    global.tawsi3Runtime[threadID] = { queue: [], processing: false };
+    global.tawsi3Runtime[threadID] = { queue: [], processing: false, timer: null };
   } else {
-    // صفّر الـ deadlock إن وُجد
     global.tawsi3Runtime[threadID].processing = false;
+    if (global.tawsi3Runtime[threadID].timer) {
+      clearTimeout(global.tawsi3Runtime[threadID].timer);
+      global.tawsi3Runtime[threadID].timer = null;
+    }
   }
   saveData(data);
 
-  const t = data[threadID].timeout || DEFAULT_TIMEOUT;
+  const t   = data[threadID].timeout || DEFAULT_TIMEOUT;
+  const msg = data[threadID].msg || "";
   return api.sendMessage(
     `✅ تم تفعيل التوسيع!\n\n` +
-    `📢 الرسالة: "${data[threadID].msg || DEFAULT_MSG}"\n` +
-    `⏱️ الوقت بين الردود: ${t} ثانية\n\n` +
-    `كل رسالة في القروب تُضاف للطابور وتُرسل الرسالة بالترتيب.\n\n` +
-    `لتغيير الرسالة: توسيع رسالة [النص]\n` +
-    `لتغيير الوقت: توسيع وقت [ثوانٍ]\n` +
-    `للإيقاف: توسيع كسر`,
+    `📢 الرسالة: "${msg}"\n` +
+    `⏱️ الوقت بين الردود: ${t} ثانية`,
     threadID, messageID
   );
 };
@@ -218,25 +229,19 @@ module.exports.handleEvent = async function({ api, event }) {
     const { threadID, senderID, type } = event;
     if (type !== "message" && type !== "message_reply") return;
 
-    // لا يرد على نفسه
     let botID;
     try { botID = String(api.getCurrentUserID()); } catch(e) { return; }
     if (String(senderID) === botID) return;
 
+    // تحميل حالة الـ thread من الملف إذا لم تكن في الذاكرة
+    ensureThread(threadID);
+
     const cfg = global.tawsi3Data[threadID];
     if (!cfg?.active) return;
 
-    // تهيئة runtime إذا لم يكن موجوداً
-    if (!global.tawsi3Runtime[threadID]) {
-      global.tawsi3Runtime[threadID] = { queue: [], processing: false };
-    }
     const rt = global.tawsi3Runtime[threadID];
-
-    // أضف للطابور
     rt.queue.push({ senderID: String(senderID), ts: Date.now() });
 
-    // شغّل المعالج إذا لم يكن يعمل
     if (!rt.processing) startProcessor(api, threadID);
-
   } catch(e) {}
 };
