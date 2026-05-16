@@ -243,13 +243,20 @@ function onBot({ models: botModel }) {
 
         // ── تحديث الـ appstate كل 20 دقيقة للحفاظ على الجلسة ──────────────
         const _refreshFile = require('path').basename(appStateFile);
+        function _isValidAppstate(state) {
+            if (!Array.isArray(state) || state.length === 0) return false;
+            const keys = state.map(c => c.key || c.name || '');
+            return keys.some(k => k === 'c_user') && keys.some(k => k === 'xs');
+        }
         setInterval(() => {
             try {
                 const fresh = loginApiData.getAppState();
-                if (fresh && fresh.length > 0) {
+                if (_isValidAppstate(fresh)) {
                     writeFileSync(appStateFile, JSON.stringify(fresh, null, '   '), 'utf8');
                     const { pushAppstate } = require('./utils/persistence');
                     pushAppstate(_refreshFile).catch(() => {});
+                } else {
+                    logger('تم تجاهل حفظ appstate — الجلسة تبدو غير صالحة', '[ APPSTATE ]');
                 }
             } catch(e) {}
         }, 20 * 60 * 1000); // كل 20 دقيقة
@@ -405,14 +412,55 @@ function onBot({ models: botModel }) {
             return false;
         }
         // ────────────────────────────────────────────────────────────────────────
+        // ── MQTT reconnect مع backoff تلقائي ────────────────────────────────
+        let _mqttReconnectCount = 0;
+        let _mqttReconnecting   = false;
+        const _MAX_MQTT_RETRIES = 10;
+
+        function startListening() {
+            try {
+                global.handleListen = loginApiData.listenMqtt(listenerCallback);
+                _mqttReconnectCount = 0;
+                _mqttReconnecting   = false;
+            } catch(e) {
+                logger('فشل بدء الاستماع: ' + e.message, '[ MQTT ]');
+                scheduleMqttReconnect();
+            }
+        }
+
+        function scheduleMqttReconnect() {
+            if (_mqttReconnecting) return;
+            _mqttReconnecting = true;
+            _mqttReconnectCount++;
+            if (_mqttReconnectCount > _MAX_MQTT_RETRIES) {
+                logger('تجاوز الحد الأقصى لمحاولات MQTT — سيُعاد تشغيل البوت', '[ MQTT ]');
+                process.exit(1);
+                return;
+            }
+            const delay = Math.min(30000 * _mqttReconnectCount, 300000);
+            logger(`محاولة إعادة اتصال MQTT ${_mqttReconnectCount}/${_MAX_MQTT_RETRIES} بعد ${delay/1000}s`, '[ MQTT ]');
+            setTimeout(() => {
+                try { if (global.handleListen) global.handleListen.stopListening(); } catch(e) {}
+                startListening();
+            }, delay);
+        }
+
         function listenerCallback(error, message) {
-            if (error) return logger(global.getText('mirai', 'handleListenError', JSON.stringify(error)), 'error');
+            if (error) {
+                logger(global.getText('mirai', 'handleListenError', JSON.stringify(error)), 'error');
+                scheduleMqttReconnect();
+                return;
+            }
+            _mqttReconnecting   = false;
+            _mqttReconnectCount = 0;
             if (['presence', 'typ', 'read_receipt'].some(data => data == message.type)) return;
             if (message.messageID && _isDuplicate(message.messageID)) return;
             if (global.config.DeveloperMode == !![]) console.log(message);
             return listener(message);
-        };
-        global.handleListen = loginApiData.listenMqtt(listenerCallback);
+        }
+
+        startListening();
+
         if (!process.listenerCount('SIGTERM')) {
             process.on('SIGTERM', () => {
                 try { if (global.handleListen) global.handleListen.stopListening(); } catch(e) {}

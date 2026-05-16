@@ -49,7 +49,27 @@ function getAppstateFiles() {
 }
 
 // ── إدارة العمليات ────────────────────────────────────────────────────────
-const botInstances = new Map(); // appstateFile → child process
+const botInstances  = new Map(); // appstateFile → child process
+const restartTimes  = new Map(); // appstateFile → [timestamps]
+
+const RESTART_WINDOW    = 10 * 60 * 1000; // 10 دقائق
+const MAX_RESTARTS      = 5;              // أقصى عدد restarts في النافذة
+const BASE_DELAY        = 60 * 1000;      // 60 ثانية بين كل restart
+const COOLDOWN_DELAY    = 10 * 60 * 1000; // 10 دقائق إذا تجاوز الحد
+
+function getRestartDelay(appstateFile) {
+  const now   = Date.now();
+  const times = (restartTimes.get(appstateFile) || []).filter(t => now - t < RESTART_WINDOW);
+  times.push(now);
+  restartTimes.set(appstateFile, times);
+
+  if (times.length >= MAX_RESTARTS) {
+    logger(`[${appstateFile}] ⛔ ${times.length} restarts في 10 دقائق — انتظار 10 دقائق`, 'RESTART');
+    return COOLDOWN_DELAY;
+  }
+  const delay = BASE_DELAY * Math.pow(1.5, times.length - 1);
+  return Math.min(delay, COOLDOWN_DELAY);
+}
 
 function startBot(appstateFile, message) {
   if (message) logger(`[${appstateFile}] ${message}`, 'BOT');
@@ -65,22 +85,26 @@ function startBot(appstateFile, message) {
 
   child.on('close', async (codeExit) => {
     botInstances.delete(appstateFile);
-    const x = String(codeExit);
+    const x  = String(codeExit);
     const ts = new Date().toLocaleTimeString('ar');
-    if (codeExit === 1) {
-      logger(`[${appstateFile}] ⚠️ توقف (code 1) الساعة ${ts} — إعادة التشغيل بعد 15 ثانية`, 'RESTART');
-      await new Promise(r => setTimeout(r, 15000));
-      return startBot(appstateFile, 'RESTARTING...');
-    } else if (x.startsWith('2')) {
+
+    if (codeExit === 0) {
+      logger(`[${appstateFile}] ⚪ خرج نظيفاً (code 0) — لن يُعاد التشغيل`, 'RESTART');
+      return;
+    }
+
+    if (x.startsWith('2')) {
       const delay = parseInt(x.slice(1)) * 1000 || 3000;
       logger(`[${appstateFile}] إعادة تنشيط (code ${codeExit}) بعد ${delay/1000}s`, 'RESTART');
       await new Promise(r => setTimeout(r, delay));
-      startBot(appstateFile, 'Reactivating...');
-    } else if (codeExit === 0) {
-      logger(`[${appstateFile}] ⚪ خرج نظيفاً (code 0) — لن يُعاد التشغيل`, 'RESTART');
-    } else {
-      logger(`[${appstateFile}] ❓ كود خروج غير معروف: ${codeExit}`, 'RESTART');
+      return startBot(appstateFile, 'Reactivating...');
     }
+
+    // code 1 أو أي كود آخر → restart ذكي بـ backoff
+    const delay = getRestartDelay(appstateFile);
+    logger(`[${appstateFile}] ⚠️ توقف (code ${codeExit}) الساعة ${ts} — إعادة التشغيل بعد ${Math.round(delay/1000)}s`, 'RESTART');
+    await new Promise(r => setTimeout(r, delay));
+    startBot(appstateFile, 'RESTARTING...');
   });
 
   child.on('error', (error) => {
