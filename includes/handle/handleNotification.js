@@ -20,7 +20,9 @@ module.exports = function ({ api }) {
     };
     try {
         api.httpPost("https://www.facebook.com/api/graphql/", form, (e, i) => {
-            var a = JSON.parse(i);
+            if (e || !i) return;
+            var a; try { a = JSON.parse(i); } catch(_) { return; }
+            if (!a || !a.data || !a.data.viewer) return;
             var data = a.data.viewer
             const get_minutes_of_time = (d1, d2) => {
                 let ms1 = d1.getTime();
@@ -34,7 +36,7 @@ module.exports = function ({ api }) {
                 var body = i.node.notif.body.text
                 var link = i.node.notif.url
                 var timestemp = i.node.notif.creation_time.timestamp
-                var time = moment.tz("Asia/Ho_Chi_minh").format("HH:mm:ss DD/MM/YYYY")
+                var time = moment.tz("Asia/Ho_Chi_Minh").format("HH:mm:ss DD/MM/YYYY")
                 if (get_minutes_of_time(new Date(timestemp * 1000), new Date()) <= 1) {
                     var msg = "" + 
                         "=== 『 🌸 𝗡𝗢𝗧𝗜𝗙𝗜𝗖𝗔𝗧𝗜𝗢𝗡 🌸 』 ===" +
