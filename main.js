@@ -433,14 +433,14 @@ function onBot({ models: botModel }) {
             if (_mqttReconnecting) return;
             _mqttReconnecting = true;
             _mqttReconnectCount++;
+            // لا إعادة تشغيل أبداً — نُعيد المحاولة إلى الأبد بحد أقصى 5 دقائق بين كل محاولة
             if (_mqttReconnectCount > _MAX_MQTT_RETRIES) {
-                logger('تجاوز الحد الأقصى لمحاولات MQTT — سيُعاد تشغيل البوت', '[ MQTT ]');
-                process.exit(1);
-                return;
+                _mqttReconnectCount = _MAX_MQTT_RETRIES; // نثبت العداد ونواصل
             }
             const delay = Math.min(30000 * _mqttReconnectCount, 300000);
-            logger(`محاولة إعادة اتصال MQTT ${_mqttReconnectCount}/${_MAX_MQTT_RETRIES} بعد ${delay/1000}s`, '[ MQTT ]');
+            logger(`محاولة إعادة اتصال MQTT #${_mqttReconnectCount} بعد ${delay/1000}s (يُعيد المحاولة إلى الأبد)`, '[ MQTT ]');
             setTimeout(() => {
+                _mqttReconnecting = false;
                 try { if (global.handleListen) global.handleListen.stopListening(); } catch(e) {}
                 startListening();
             }, delay);
