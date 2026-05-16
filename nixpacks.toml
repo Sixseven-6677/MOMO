@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["nodejs_24", "python3", "gcc", "gnumake"]
+nixPkgs = ["nodejs_24", "python3", "gcc", "gnumake", "fontconfig", "noto-fonts", "noto-fonts-arabic"]
 
 [phases.install]
 cmds = ["npm install --legacy-peer-deps"]
