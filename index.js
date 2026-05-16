@@ -16,14 +16,11 @@ app.use(express.json());
 
 var gio = moment.tz('Asia/Ho_Chi_Minh').format('HH:mm:ss || D/MM/YYYY');
 
-// ── جلب أحدث بيانات اللاعبين من GitHub عند الإطلاق ──────────────────────
-// syncFromGitHub سيُستدعى داخل setTimeout بعد التأكد من الإعداد
-
 // ── حقن الكوكيز عبر متغيرات البيئة (للحساب الأول فقط) ───────────────────
 (function () {
   try {
     const flag = path.join(__dirname, 'appstate.manual');
-    if (existsSync(flag)) return; // تجاهل إذا تم التحديث يدوياً
+    if (existsSync(flag)) return;
     if (process.env.FB_COOKIES) {
       const appstate = rawCookiesToAppstate(process.env.FB_COOKIES);
       writeFileSync(path.join(__dirname, 'appstate.json'), JSON.stringify(appstate, null, 2), 'utf8');
@@ -49,27 +46,7 @@ function getAppstateFiles() {
 }
 
 // ── إدارة العمليات ────────────────────────────────────────────────────────
-const botInstances  = new Map(); // appstateFile → child process
-const restartTimes  = new Map(); // appstateFile → [timestamps]
-
-const RESTART_WINDOW    = 10 * 60 * 1000; // 10 دقائق
-const MAX_RESTARTS      = 5;              // أقصى عدد restarts في النافذة
-const BASE_DELAY        = 60 * 1000;      // 60 ثانية بين كل restart
-const COOLDOWN_DELAY    = 10 * 60 * 1000; // 10 دقائق إذا تجاوز الحد
-
-function getRestartDelay(appstateFile) {
-  const now   = Date.now();
-  const times = (restartTimes.get(appstateFile) || []).filter(t => now - t < RESTART_WINDOW);
-  times.push(now);
-  restartTimes.set(appstateFile, times);
-
-  if (times.length >= MAX_RESTARTS) {
-    logger(`[${appstateFile}] ⛔ ${times.length} restarts في 10 دقائق — انتظار 10 دقائق`, 'RESTART');
-    return COOLDOWN_DELAY;
-  }
-  const delay = BASE_DELAY * Math.pow(1.5, times.length - 1);
-  return Math.min(delay, COOLDOWN_DELAY);
-}
+const botInstances = new Map(); // appstateFile → child process
 
 function startBot(appstateFile, message) {
   if (message) logger(`[${appstateFile}] ${message}`, 'BOT');
@@ -88,23 +65,26 @@ function startBot(appstateFile, message) {
     const x  = String(codeExit);
     const ts = new Date().toLocaleTimeString('ar');
 
+    // ── exit code 0: خرج نظيفاً — لا إعادة تشغيل ──────────────────────
     if (codeExit === 0) {
-      logger(`[${appstateFile}] ⚪ خرج نظيفاً (code 0) — لن يُعاد التشغيل`, 'RESTART');
+      logger(`[${appstateFile}] ⚪ خرج البوت نظيفاً (code 0) — لن يُعاد التشغيل`, 'RESTART');
       return;
     }
 
-    if (x.startsWith('2')) {
+    // ── exit codes 2xx: إعادة تنشيط مقصودة (مثال: تحديث الكوكيز) ───────
+    if (x.startsWith('2') && x.length === 3) {
       const delay = parseInt(x.slice(1)) * 1000 || 3000;
-      logger(`[${appstateFile}] إعادة تنشيط (code ${codeExit}) بعد ${delay/1000}s`, 'RESTART');
+      logger(`[${appstateFile}] 🔄 إعادة تنشيط مقصودة (code ${codeExit}) بعد ${delay/1000}s`, 'RESTART');
       await new Promise(r => setTimeout(r, delay));
       return startBot(appstateFile, 'Reactivating...');
     }
 
-    // code 1 أو أي كود آخر → restart ذكي بـ backoff
-    const delay = getRestartDelay(appstateFile);
-    logger(`[${appstateFile}] ⚠️ توقف (code ${codeExit}) الساعة ${ts} — إعادة التشغيل بعد ${Math.round(delay/1000)}s`, 'RESTART');
-    await new Promise(r => setTimeout(r, delay));
-    startBot(appstateFile, 'RESTARTING...');
+    // ── أي كود آخر (عطل/crash): لا إعادة تشغيل تلقائية ─────────────────
+    logger(
+      `[${appstateFile}] ⛔ توقف البوت بشكل غير متوقع (code ${codeExit}) الساعة ${ts}\n` +
+      `   ℹ️  لإعادة التشغيل: أعد النشر من Railway أو شغّل البوت يدوياً`,
+      'RESTART'
+    );
   });
 
   child.on('error', (error) => {
@@ -143,7 +123,7 @@ app.post('/update-cookies', (req, res) => {
 
 // ── واجهة لإدارة الحسابات ─────────────────────────────────────────────────
 app.get('/accounts', (req, res) => {
-  const files = getAppstateFiles();
+  const files   = getAppstateFiles();
   const running = [];
   botInstances.forEach((_, f) => running.push(f));
   res.json({ total: files.length, files, running });
@@ -153,13 +133,13 @@ app.listen(port);
 console.log('[BOT] Server started at port ' + port);
 logger('Facebook: https://www.facebook.com/TatsuYTB', 'Facebook');
 
-const rainbow = chalk.rainbow('\n                 [=== MOMO Multi-Account ===]\n\n').stop();
+const rainbow = chalk.rainbow('\n                 [=== FANG Multi-Account ===]\n\n').stop();
 rainbow.render();
 console.log(rainbow.frame());
 logger('Multi-account mode active', 'UPDATE');
 
-// ── بدء النسخ الاحتياطي التلقائي كل 5 دقائق ──────────────────────────────
-startAutoBackup(30 * 60 * 1000); // كل 30 دقيقة بدل 5
+// ── بدء النسخ الاحتياطي التلقائي ──────────────────────────────────────────
+startAutoBackup(30 * 60 * 1000);
 
 // ── إطلاق جميع الحسابات ───────────────────────────────────────────────────
 (async () => {
