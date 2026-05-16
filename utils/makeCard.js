@@ -12,15 +12,14 @@ async function ensureFonts(GF) {
   const ax = require('axios');
   const defs = [
     ['Roboto-Regular.ttf','Roboto','https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf'],
-    ['Cairo-Regular.ttf','Cairo','https://github.com/google/fonts/raw/main/ofl/cairo/static/Cairo-Regular.ttf'],
-    ['Cairo-Bold.ttf','Cairo','https://github.com/google/fonts/raw/main/ofl/cairo/static/Cairo-Bold.ttf'],
+    ['Roboto-Bold.ttf','RobotoBold','https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf'],
   ];
   for (const [file, name, url] of defs) {
     const p = path.join(os.tmpdir(), file);
     if (!fs.existsSync(p)) {
       try {
         const r = await ax.get(url, { responseType: 'arraybuffer', timeout: 10000 });
-        fs.writeFileSync(p, Buffer.from(r.data));
+        if (r.data.byteLength > 5000) fs.writeFileSync(p, Buffer.from(r.data));
       } catch(e) {}
     }
     if (fs.existsSync(p)) try { GF.registerFromPath(p, name); } catch(e) {}
@@ -28,7 +27,8 @@ async function ensureFonts(GF) {
   _FR = true;
 }
 
-const F = '"Cairo","Roboto","DejaVu Sans",Arial,sans-serif';
+const FB = '"RobotoBold","Roboto","DejaVu Sans",Arial,sans-serif';
+const FR = '"Roboto","DejaVu Sans",Arial,sans-serif';
 const sv = v => (v == null) ? '—' : String(v);
 
 function rr(ctx, x, y, w, h, r) {
@@ -40,7 +40,7 @@ function rr(ctx, x, y, w, h, r) {
   ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
 }
 
-function glass(ctx, x, y, w, h, r=24, fa='rgba(77,163,255,0.06)', fb='rgba(77,163,255,0.13)') {
+function glass(ctx, x, y, w, h, r, fa, fb) {
   rr(ctx,x,y,w,h,r); ctx.fillStyle=fa; ctx.fill();
   rr(ctx,x,y,w,h,r); ctx.strokeStyle=fb; ctx.lineWidth=1; ctx.stroke();
 }
@@ -75,18 +75,21 @@ async function makeCard(data) {
 
   rr(ctx,MX,MY,MW,MH,32); ctx.fillStyle='rgba(255,255,255,0.04)'; ctx.fill();
   const bg = ctx.createLinearGradient(MX,MY,MX+MW,MY+MH);
-  bg.addColorStop(0,'rgba(77,163,255,0.65)'); bg.addColorStop(0.5,'rgba(184,77,255,0.55)'); bg.addColorStop(1,'rgba(77,163,255,0.65)');
+  bg.addColorStop(0,'rgba(77,163,255,0.65)');
+  bg.addColorStop(0.5,'rgba(184,77,255,0.55)');
+  bg.addColorStop(1,'rgba(77,163,255,0.65)');
   rr(ctx,MX,MY,MW,MH,32); ctx.strokeStyle=bg; ctx.lineWidth=1.5; ctx.stroke();
-  ctx.save(); ctx.shadowBlur=50; ctx.shadowColor='rgba(77,163,255,0.28)';
+  ctx.save();
+  ctx.shadowBlur=50; ctx.shadowColor='rgba(77,163,255,0.28)';
   rr(ctx,MX,MY,MW,MH,32); ctx.strokeStyle='rgba(77,163,255,0.10)'; ctx.lineWidth=4; ctx.stroke();
   ctx.restore();
 
   const IX = MX+30, IW = MW-60;
 
-  const botTitle = sv(data.botName||'Fang').toUpperCase()+' DASHBOARD';
+  const botTitle = sv(data.botName||'Fang').toUpperCase() + ' DASHBOARD';
   const tg = ctx.createLinearGradient(IX,0,IX+520,0);
   tg.addColorStop(0,'#4da3ff'); tg.addColorStop(1,'#d84dff');
-  ctx.font=`bold 34px ${F}`; ctx.fillStyle=tg; ctx.textAlign='left';
+  ctx.font=`bold 34px ${FB}`; ctx.fillStyle=tg; ctx.textAlign='left';
   ctx.fillText(botTitle, IX, MY+76);
 
   ctx.save();
@@ -94,11 +97,13 @@ async function makeCard(data) {
   ctx.beginPath(); ctx.arc(MX+MW-116,MY+62,8,0,Math.PI*2);
   ctx.fillStyle='#48ffd5'; ctx.fill();
   ctx.restore();
-  ctx.font=`bold 20px ${F}`; ctx.fillStyle='#48ffd5';
+  ctx.font=`bold 20px ${FB}`; ctx.fillStyle='#48ffd5';
   ctx.fillText('ONLINE', MX+MW-100, MY+68);
 
   const lineG = ctx.createLinearGradient(IX,0,IX+IW,0);
-  lineG.addColorStop(0,'rgba(77,163,255,0.28)'); lineG.addColorStop(0.5,'rgba(184,77,255,0.22)'); lineG.addColorStop(1,'rgba(77,163,255,0.28)');
+  lineG.addColorStop(0,'rgba(77,163,255,0.28)');
+  lineG.addColorStop(0.5,'rgba(184,77,255,0.22)');
+  lineG.addColorStop(1,'rgba(77,163,255,0.28)');
   ctx.beginPath(); ctx.moveTo(IX,MY+90); ctx.lineTo(IX+IW,MY+90);
   ctx.strokeStyle=lineG; ctx.lineWidth=1; ctx.stroke();
 
@@ -113,27 +118,37 @@ async function makeCard(data) {
   sCfg.forEach((sc,i) => {
     const x = IX+i*(sW+12);
     glass(ctx,x,sY,sW,sH,18,sc.fa,sc.fb);
-    ctx.font=`bold 10px ${F}`; ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.textAlign='left';
+    ctx.font=`bold 10px ${FB}`; ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.textAlign='left';
     ctx.fillText(sc.lbl, x+14, sY+22);
-    ctx.font=`normal 21px ${F}`; ctx.fillStyle=sc.vc;
+    ctx.font=`normal 21px ${FR}`; ctx.fillStyle=sc.vc;
     ctx.fillText(sv(sc.val), x+14, sY+50);
   });
 
   let cy = sY+sH+14;
   const cH=92, ISZ=70, GAP=11;
+
+  const cpuVal = sv(data.cpu);
+  const cpuSz  = cpuVal.length > 22 ? 14 : cpuVal.length > 16 ? 16 : 18;
+
   const cards = [
-    {fa:'rgba(77,83,255,.07)',fb:'rgba(77,83,255,.16)',ig:['#4d5fff','#6b8cff'],it:'CPU',
-     lbl:'المعالج المستخدم', val:sv(data.cpu), vc:'rgba(255,255,255,.80)', vs:(data.cpu&&sv(data.cpu).length>18?14:18), bar:null},
-    {fa:'rgba(0,198,184,.07)',fb:'rgba(0,198,184,.16)',ig:['#00c6b8','#00b894'],it:'UP',
-     lbl:'وقت التشغيل', val:sv(data.uptime), vc:'#39ffe1', vs:26, bar:null},
-    {fa:'rgba(145,61,255,.07)',fb:'rgba(145,61,255,.16)',ig:['#913dff','#cf63ff'],it:'MEM',
-     lbl:'الذاكرة المستخدمة', val:sv(data.heapUsed)+' MB', vc:'#d26cff', vs:24,
+    {fa:'rgba(77,83,255,.07)', fb:'rgba(77,83,255,.16)', ig:['#4d5fff','#6b8cff'], it:'CPU',
+     lbl:'CPU MODEL', val:cpuVal, vc:'rgba(200,210,255,.88)', vs:cpuSz, bar:null},
+    {fa:'rgba(0,198,184,.07)', fb:'rgba(0,198,184,.16)', ig:['#00c6b8','#00b894'], it:'UP',
+     lbl:'BOT UPTIME', val:sv(data.uptime), vc:'#39ffe1', vs:26, bar:null},
+    {fa:'rgba(145,61,255,.07)',fb:'rgba(145,61,255,.16)',ig:['#913dff','#cf63ff'], it:'MEM',
+     lbl:'HEAP MEMORY',
+     val:sv(data.heapUsed)+' / '+sv(data.heapTotal)+' MB',
+     vc:'#d26cff', vs:18,
      bar:{pct:data.heapPct,c0:'#d26cff',c1:'#b84dff',sub:(Math.min(Number(data.heapPct)||0,1)*100).toFixed(0)+'%'}},
-    {fa:'rgba(27,124,255,.07)',fb:'rgba(27,124,255,.16)',ig:['#1b7cff','#4dd2ff'],it:'DSK',
-     lbl:'المساحة المتاحة', val:sv(data.diskFree||'N/A'), vc:'#4dd2ff', vs:24,
+    {fa:'rgba(27,124,255,.07)',fb:'rgba(27,124,255,.16)',ig:['#1b7cff','#4dd2ff'],  it:'DSK',
+     lbl:'DISK FREE',
+     val:sv(data.diskFree||'N/A'),
+     vc:'#4dd2ff', vs:24,
      bar:data.diskFreePct!=null?{pct:data.diskFreePct,c0:'#4dd2ff',c1:'#1b7cff',sub:(Math.min(Number(data.diskFreePct)||0,1)*100).toFixed(0)+'%'}:null},
-    {fa:'rgba(176,106,0,.07)',fb:'rgba(176,106,0,.18)',ig:['#b06a00','#ffb84d'],it:'NOW',
-     lbl:'زمن التشغيل الحالي', val:sv(data.currentTime||new Date().toLocaleTimeString('en-US',{hour12:true})), vc:'#ffbe5c', vs:26, bar:null},
+    {fa:'rgba(176,106,0,.07)',fb:'rgba(176,106,0,.18)', ig:['#b06a00','#ffb84d'],  it:'CLK',
+     lbl:'CURRENT TIME',
+     val:sv(data.currentTime||new Date().toLocaleTimeString('en-US',{hour12:true})),
+     vc:'#ffbe5c', vs:26, bar:null},
   ];
 
   for (const c of cards) {
@@ -142,33 +157,36 @@ async function makeCard(data) {
     const ig = ctx.createLinearGradient(IX+18,cy+(cH-ISZ)/2,IX+18+ISZ,cy+(cH+ISZ)/2);
     ig.addColorStop(0,c.ig[0]); ig.addColorStop(1,c.ig[1]);
     rr(ctx,IX+18,cy+(cH-ISZ)/2,ISZ,ISZ,20); ctx.fillStyle=ig; ctx.fill();
-    ctx.font=`bold 15px ${F}`; ctx.fillStyle='rgba(255,255,255,0.95)';
+
+    ctx.font=`bold 15px ${FB}`; ctx.fillStyle='rgba(255,255,255,0.95)';
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(c.it, IX+18+ISZ/2, cy+cH/2);
     ctx.textAlign='left'; ctx.textBaseline='alphabetic';
 
     const lx = IX+18+ISZ+20;
-    ctx.font=`bold 22px ${F}`; ctx.fillStyle='rgba(255,255,255,0.90)';
-    ctx.fillText(c.lbl, lx, cy+28);
+    ctx.font=`bold 13px ${FB}`; ctx.fillStyle='rgba(255,255,255,0.35)';
+    ctx.fillText(c.lbl, lx, cy+22);
 
     if (c.bar) {
-      const bW = IW-ISZ-56-150;
-      pbar(ctx,lx,cy+40,bW,10,c.bar.pct,c.bar.c0,c.bar.c1);
-      ctx.font=`normal 14px ${F}`; ctx.fillStyle='rgba(255,255,255,0.45)';
-      ctx.fillText(c.bar.sub, lx+bW+10, cy+51);
+      const bW = IW-ISZ-56-160;
+      ctx.font=`bold ${c.vs}px ${FR}`; ctx.fillStyle=c.vc;
+      ctx.fillText(c.val, lx, cy+50);
+      pbar(ctx,lx,cy+58,bW,8,c.bar.pct,c.bar.c0,c.bar.c1);
+      ctx.font=`normal 13px ${FR}`; ctx.fillStyle='rgba(255,255,255,0.40)';
+      ctx.fillText(c.bar.sub, lx+bW+10, cy+67);
+    } else {
+      ctx.font=`bold ${c.vs}px ${FR}`; ctx.fillStyle=c.vc;
+      ctx.textAlign='right';
+      ctx.fillText(c.val, IX+IW-18, cy+cH/2+c.vs*0.35);
+      ctx.textAlign='left';
     }
-
-    ctx.font=`bold ${c.vs}px ${F}`; ctx.fillStyle=c.vc;
-    ctx.textAlign='right';
-    ctx.fillText(c.val, IX+IW-18, cy+cH/2+c.vs*0.35);
-    ctx.textAlign='left';
 
     cy += cH+GAP;
   }
 
-  ctx.font=`bold 16px ${F}`; ctx.fillStyle='rgba(255,255,255,0.28)';
+  ctx.font=`bold 15px ${FB}`; ctx.fillStyle='rgba(255,255,255,0.25)';
   ctx.textAlign='center';
-  ctx.fillText('STAY POWERED  ⚡  FANG BOT  |  Node.js v24.13.0', W/2, MY+MH-14);
+  ctx.fillText('STAY POWERED  *  FANG BOT  |  Node.js v24.13.0', W/2, MY+MH-14);
   ctx.textAlign='left';
 
   return canvas.toBuffer('image/png');
