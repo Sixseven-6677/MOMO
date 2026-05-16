@@ -2,8 +2,6 @@ const assets = require('@miraipr0ject/assets');
 const crypto = require('crypto');
 const os = require("os");
 const axios = require("axios");
-const config = require('../config.json');
-const pkgJson = require('../package.json');
 
 module.exports.getYoutube = async function(t, e, i) {
     require("ytdl-core");
