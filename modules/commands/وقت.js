@@ -9,15 +9,14 @@ function loadData() {
 }
 function saveData(obj) {
   try {
-    const dir = path.dirname(dataPath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(path.dirname(dataPath), { recursive: true });
     fs.writeFileSync(dataPath, JSON.stringify(obj, null, 2));
   } catch(e) {}
 }
 
 module.exports.config = {
   name: "وقت",
-  version: "1.0.0",
+  version: "2.0.0",
   hasPermssion: 3,
   credits: "FANG",
   description: "يتحكم في الوقت (بالثواني) بين ردود التوسيع",
@@ -28,44 +27,34 @@ module.exports.config = {
 
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID } = event;
-  const data = loadData();
 
-  // عرض الوقت الحالي
+  const data    = loadData();
+  const current = data[threadID] || { active: false, msg: "", timeout: 30 };
+
   if (!args[0]) {
-    const current = data[threadID]?.timeout || 30;
-    const active  = data[threadID]?.active ? "✅ التوسيع مفعّل" : "❌ التوسيع موقوف";
+    const status = current.active ? "✅ مفعّل" : "❌ موقوف";
     return api.sendMessage(
       `⏱️ وقت التوسيع في هذا القروب\n\n` +
-      `الحالة: ${active}\n` +
-      `الوقت الحالي: ${current} ثانية\n\n` +
-      `لتغييره: وقت [ثوانٍ]\n` +
-      `مثال: وقت 60`,
+      `الحالة: ${status}\n` +
+      `الوقت الحالي: ${current.timeout || 30} ثانية\n\n` +
+      `لتغييره: وقت [ثوانٍ]\nمثال: وقت 60`,
       threadID, messageID
     );
   }
 
   const seconds = parseInt(args[0]);
-  if (isNaN(seconds) || seconds < 5 || seconds > 3600) {
-    return api.sendMessage(
-      "❌ الوقت يجب أن يكون بين 5 و 3600 ثانية\nمثال: وقت 30",
-      threadID, messageID
-    );
-  }
+  if (isNaN(seconds) || seconds < 5 || seconds > 3600)
+    return api.sendMessage("❌ الوقت يجب أن يكون بين 5 و 3600 ثانية\nمثال: وقت 30", threadID, messageID);
 
-  if (!data[threadID]) data[threadID] = { active: false, msg: "", timeout: 30 };
-  data[threadID].timeout = seconds;
-
-  // تحديث global أيضاً
-  if (global.tawsi3Data) {
-    if (!global.tawsi3Data[threadID]) global.tawsi3Data[threadID] = {};
-    global.tawsi3Data[threadID].timeout = seconds;
-  }
-
+  // حفظ كل الحقول مع تحديث الوقت فقط — لا يُمسّ active أو msg
+  data[threadID] = { ...current, timeout: seconds };
   saveData(data);
 
-  const mins = seconds >= 60 ? ` (${Math.floor(seconds/60)} دقيقة${seconds%60 ? ' و'+seconds%60+' ثانية':''})` : '';
+  const mins = seconds >= 60
+    ? ` (${Math.floor(seconds / 60)} دقيقة${seconds % 60 ? " و" + seconds % 60 + " ثانية" : ""})`
+    : "";
   return api.sendMessage(
-    `✅ تم تحديث وقت التوسيع إلى ${seconds} ثانية${mins}\n\nالتغيير يسري على الطابور الحالي فوراً.`,
+    `✅ تم تحديث وقت التوسيع إلى ${seconds} ثانية${mins}`,
     threadID, messageID
   );
 };
