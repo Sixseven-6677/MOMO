@@ -27,23 +27,23 @@ global.client = new Object({
   getTime: function (option) {
         switch (option) {
             case "seconds":
-                return `${moment.tz("Asia/Ho_Chi_minh").format("ss")}`;
+                return `${moment.tz("Asia/Ho_Chi_Minh").format("ss")}`;
             case "minutes":
-                return `${moment.tz("Asia/Ho_Chi_minh").format("mm")}`;
+                return `${moment.tz("Asia/Ho_Chi_Minh").format("mm")}`;
             case "hours":
-                return `${moment.tz("Asia/Ho_Chi_minh").format("HH")}`;
+                return `${moment.tz("Asia/Ho_Chi_Minh").format("HH")}`;
             case "date": 
-                return `${moment.tz("Asia/Ho_Chi_minh").format("DD")}`;
+                return `${moment.tz("Asia/Ho_Chi_Minh").format("DD")}`;
             case "month":
-                return `${moment.tz("Asia/Ho_Chi_minh").format("MM")}`;
+                return `${moment.tz("Asia/Ho_Chi_Minh").format("MM")}`;
             case "year":
-                return `${moment.tz("Asia/Ho_Chi_minh").format("YYYY")}`;
+                return `${moment.tz("Asia/Ho_Chi_Minh").format("YYYY")}`;
             case "fullHour":
-                return `${moment.tz("Asia/Ho_Chi_minh").format("HH:mm:ss")}`;
+                return `${moment.tz("Asia/Ho_Chi_Minh").format("HH:mm:ss")}`;
             case "fullYear":
-                return `${moment.tz("Asia/Ho_Chi_minh").format("DD/MM/YYYY")}`;
+                return `${moment.tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY")}`;
             case "fullTime":
-                return `${moment.tz("Asia/Ho_Chi_minh").format("HH:mm:ss DD/MM/YYYY")}`;
+                return `${moment.tz("Asia/Ho_Chi_Minh").format("HH:mm:ss DD/MM/YYYY")}`;
         }
   }
 });
@@ -488,7 +488,7 @@ function onBot({ models: botModel }) {
             const { Model, DataTypes, Sequelize } = require("sequelize");
             const sequelize2 = new Sequelize({
                 dialect: "sqlite",
-                host: __dirname + '/includes/data.sqlite',
+                storage: __dirname + '/includes/data.sqlite',
                 logging: false
             });
             class dataModel extends Model { }
