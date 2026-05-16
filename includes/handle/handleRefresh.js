@@ -25,15 +25,9 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
                     break;
                 }
                 case "log:subscribe": {
-                    if (event.logMessageData.addedParticipants.some(i => i.userFbId == api.getCurrentUserID())) {
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        try {
-                            require('./handleCreateDatabase.js');
-                        } catch(e) {
-                            console.log(e)
-                        }
-                        return;
-                    }
+                    // BUG FIX: removed broken require('./handleCreateDatabase.js') that loaded
+                    // the factory function but never called it — DB is created automatically
+                    // by handleCreateDatabase in listen.js on the next message event.
                     break;
                 }
                 
