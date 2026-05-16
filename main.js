@@ -21,6 +21,7 @@ global.client = new Object({
     handleSchedule: new Array(),
     handleReaction: new Array(),
     handleReply: new Array(),
+    recentEvents: new Array(),
     mainPath: process.cwd(),
     configPath: new String(),
   getTime: function (option) {
