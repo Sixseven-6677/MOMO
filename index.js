@@ -12,6 +12,9 @@ const moment                       = require('moment-timezone');
 
 const app  = express();
 const port = process.env.PORT || 2006;
+
+// ── وقت التشغيل الأصلي — لا يتغير حتى لو أُعيد تشغيل main.js ──────────
+if (!process.env.BOT_START_TIME) process.env.BOT_START_TIME = Date.now().toString();
 app.use(express.json());
 
 var gio = moment.tz('Asia/Ho_Chi_Minh').format('HH:mm:ss || D/MM/YYYY');
