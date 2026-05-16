@@ -4,7 +4,7 @@ const conversationHistory = new Map();
 
 module.exports.config = {
   name: 'فانغ',
-  version: '2.0.0',
+  version: '2.0.1',
   hasPermssion: 0,
   credits: 'FANG',
   description: 'ذكاء اصطناعي مجاني — تحدث مع فانغ',
@@ -19,14 +19,10 @@ module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID, senderID } = event;
   const userMsg = args.join(' ').trim();
 
+  // BUG FIX: was using single-quoted multi-line string (SyntaxError in strict JS)
   if (!userMsg)
     return api.sendMessage(
-      '🤖 أنا فانغ، مساعدك الذكي!
-كتب رسالتك بعد الأمر
-
-مثال: فانغ من أنت؟
-
-لمسح المحادثة: فانغ مسح',
+      '🤖 أنا فانغ، مساعدك الذكي!\nكتب رسالتك بعد الأمر\n\nمثال: فانغ من أنت؟\n\nلمسح المحادثة: فانغ مسح',
       threadID, messageID
     );
 
