@@ -1,89 +1,107 @@
 module.exports.config = {
   name: "uptime",
-  version: "6.0.0",
+  version: "7.0.0",
   hasPermssion: 0,
   credits: "FANG",
-  description: "معلومات البوت والسيرفر",
+  description: "صورة داشبورد معلومات البوت",
   commandCategory: "معلومات",
   usages: "uptime",
-  cooldowns: 5
+  cooldowns: 10
 };
 
 module.exports.run = async function({ api, event }) {
   const { threadID, messageID } = event;
-  const os     = require("os");
-  const moment = require("moment-timezone");
-  const start  = Date.now();
+  const os     = require('os');
+  const moment = require('moment-timezone');
+  const path   = require('path');
+  const fs     = require('fs');
+  const pingStart = Date.now();
 
-  // وقت التشغيل
+  // ── جمع البيانات ──────────────────────────────────────────────────────
   const tot = Math.floor(process.uptime());
-  const d = Math.floor(tot / 86400);
-  const h = Math.floor((tot % 86400) / 3600);
-  const m = Math.floor((tot % 3600) / 60);
-  const s = tot % 60;
-  const runtime = `${d}ي ${h}س ${m}د ${s}ث`;
+  const d   = Math.floor(tot / 86400);
+  const h   = Math.floor((tot % 86400) / 3600);
+  const m   = Math.floor((tot % 3600) / 60);
+  const s   = tot % 60;
+  const uptimeStr = [
+    d > 0 ? `${d}d` : '',
+    h > 0 ? `${h}h` : '',
+    m > 0 ? `${m}m` : '',
+    `${s}s`
+  ].filter(Boolean).join(' ');
 
-  // ذاكرة العملية
   const mem       = process.memoryUsage();
   const heapUsed  = (mem.heapUsed  / 1024 / 1024).toFixed(1);
   const heapTotal = (mem.heapTotal / 1024 / 1024).toFixed(1);
   const rss       = (mem.rss       / 1024 / 1024).toFixed(1);
+  const heapPct   = mem.heapUsed / mem.heapTotal;
+  const rssPct    = Math.min(mem.rss / (os.totalmem() || 1), 1);
 
-  // المعالج
-  const cpus  = os.cpus();
-  const cpu   = (cpus[0]?.model || "?").replace(/\(.*?\)/g, "").trim().slice(0, 30);
-  const cores = cpus.length;
+  const cpus   = os.cpus();
+  const cpu    = (cpus[0]?.model || 'Unknown').replace(/\(.*?\)/g,'').trim().slice(0, 22);
+  const osSec  = Math.floor(os.uptime());
+  const osUptime = `${Math.floor(osSec/86400)}d ${Math.floor((osSec%86400)/3600)}h`;
 
-  // وقت تشغيل الجهاز
-  const osSec = Math.floor(os.uptime());
-  const osDay = Math.floor(osSec / 86400);
-  const osHr  = Math.floor((osSec % 86400) / 3600);
+  const ping = Date.now() - pingStart;
 
-  // ping
-  const ms = Date.now() - start;
-
-  // التوقيت
   const zones = [
-    ["🇸🇦 السعودية", "Asia/Riyadh"],
-    ["🇪🇬 مصر      ", "Africa/Cairo"],
-    ["🇦🇪 الإمارات ", "Asia/Dubai"],
-    ["🇩🇿 الجزائر  ", "Africa/Algiers"],
-    ["🇲🇦 المغرب   ", "Africa/Casablanca"],
+    { flag: 'SA', city: 'Riyadh',    tz: 'Asia/Riyadh'           },
+    { flag: 'EG', city: 'Cairo',     tz: 'Africa/Cairo'          },
+    { flag: 'AE', city: 'Dubai',     tz: 'Asia/Dubai'            },
+    { flag: 'DZ', city: 'Algiers',   tz: 'Africa/Algiers'        },
+    { flag: 'MA', city: 'Casablanca',tz: 'Africa/Casablanca'     },
   ];
-  const times = zones.map(([name, tz]) =>
-    `  ${name} — ${moment().tz(tz).format("hh:mm A")}`
-  ).join("\n");
+  const times = zones.map(z => ({
+    flag: z.flag,
+    city: z.city,
+    time: moment().tz(z.tz).format('hh:mm A')
+  }));
 
   const cmds   = global.client?.commands?.size  || 0;
   const groups = global.data?.allThreadID?.length || 0;
-  const botName = global.config?.BOTNAME || "FANG";
+  const events = (global.client?.recentEvents || []).slice(0, 7);
+  const botName = global.config?.BOTNAME || 'MOMO';
 
-  const text = [
-    `╔══ ${botName} ══╗`,
-    ``,
-    `⏱ وقت التشغيل`,
-    `  ${runtime}`,
-    ``,
-    `⚡ الاستجابة — ${ms}ms`,
-    ``,
-    `🕐 الوقت الحالي`,
-    times,
-    ``,
-    `💾 الذاكرة`,
-    `  مستخدم : ${heapUsed} MB`,
-    `  إجمالي : ${rss} MB`,
-    ``,
-    `📊 إحصائيات`,
-    `  الأوامر  : ${cmds} أمر`,
-    `  القروبات : ${groups} قروب`,
-    ``,
-    `🖥 السيرفر`,
-    `  معالج  : ${cpu}`,
-    `  أنوية  : ${cores}`,
-    `  يعمل   : ${osDay}ي ${osHr}س`,
-    ``,
-    `╚${"═".repeat((`╔══ ${botName} ══╗`).length - 2)}╝`,
-  ].join("\n");
+  // ── توليد الصورة ──────────────────────────────────────────────────────
+  let imgPath;
+  try {
+    const { makeCard } = require('../../utils/makeCard');
+    const buf = await makeCard({
+      botName, version: global.config?.version || '1.2.14',
+      uptime: uptimeStr,
+      ping:   ping + 'ms',
+      cmds, groups,
+      heapUsed, heapTotal, rss, heapPct, rssPct,
+      cpu, osUptime,
+      times, events
+    });
 
-  return api.sendMessage(text, threadID, messageID);
+    imgPath = path.join(os.tmpdir(), `uptime_${Date.now()}.png`);
+    fs.writeFileSync(imgPath, buf);
+
+    await new Promise((resolve, reject) => {
+      api.sendMessage(
+        { attachment: fs.createReadStream(imgPath) },
+        threadID,
+        (err) => {
+          if (imgPath) try { fs.unlinkSync(imgPath); } catch(e) {}
+          if (err) reject(err); else resolve();
+        },
+        messageID
+      );
+    });
+
+  } catch (err) {
+    // fallback نصي إذا فشل توليد الصورة
+    if (imgPath) try { fs.unlinkSync(imgPath); } catch(e) {}
+    const text = [
+      `╔══ ${botName} ══╗`,
+      `⏱ ${uptimeStr}`,
+      `⚡ ${ping}ms`,
+      `💾 Heap: ${heapUsed}/${heapTotal} MB`,
+      `📊 Cmds: ${cmds}  Groups: ${groups}`,
+      `╚${'═'.repeat(10)}╝`,
+    ].join('\n');
+    return api.sendMessage(text, threadID, messageID);
+  }
 };
