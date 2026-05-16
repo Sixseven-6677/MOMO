@@ -272,6 +272,14 @@ module.exports = function ({ api, models }) {
     //========= Send event to handle need =========//
     /////////////////////////////////////////////////
 
+    function _pushEvent(type, user, detail) {
+        try {
+            if (!global.client.recentEvents) global.client.recentEvents = [];
+            global.client.recentEvents.unshift({ type, user, detail, time: Date.now() });
+            if (global.client.recentEvents.length > 30) global.client.recentEvents.pop();
+        } catch(e) {}
+    }
+
     return async (event) => {
 
         if (event.type == "change_thread_image") api.sendMessage(`» [ 𝐂𝐀̣̂𝐏 𝐍𝐇𝐀̣̂𝐓 𝐍𝐇𝐎́𝐌 ]\n»  ${event.snippet}`, event.threadID);
@@ -283,10 +291,17 @@ module.exports = function ({ api, models }) {
                 handleCommand({ event });
                 handleReply({ event });
                 handleCommandEvent({ event });
-
+                if (event.body && event.body.startsWith(global.config.PREFIX)) {
+                    const cmdName = event.body.slice(global.config.PREFIX.length).split(' ')[0].toLowerCase();
+                    _pushEvent('cmd', String(event.senderID), cmdName);
+                }
                 break;
             case "change_thread_image":
             case "event":
+                if (event.logMessageType === 'log:subscribe')
+                    _pushEvent('join', String(event.logMessageData?.addedParticipants?.[0]?.userFbId || event.author), '');
+                if (event.logMessageType === 'log:unsubscribe')
+                    _pushEvent('leave', String(event.logMessageData?.leftParticipantFbId || event.author), '');
                 handleEvent({ event });
                 handleCommandEvent({ event });
                 handleRefresh({ event });
