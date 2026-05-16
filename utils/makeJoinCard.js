@@ -8,14 +8,16 @@ async function ensureFonts(GF) {
   try { GF.loadSystemFonts(); } catch(e) {}
   const ax = require('axios');
   const defs = [
-    ['Roboto-Regular.ttf','Roboto','https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf'],
-    ['Roboto-Bold.ttf','RobotoBold','https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf'],
+    ['NotoSansArabic-Regular.ttf','NotoArabic',   'https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf'],
+    ['NotoSansArabic-Bold.ttf',   'NotoArabicBold','https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf'],
+    ['Roboto-Regular.ttf','Roboto',    'https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf'],
+    ['Roboto-Bold.ttf',   'RobotoBold','https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf'],
   ];
   for (const [file, name, url] of defs) {
     const p = path.join(os.tmpdir(), file);
     if (!fs.existsSync(p)) {
       try {
-        const r = await ax.get(url, { responseType: 'arraybuffer', timeout: 10000 });
+        const r = await ax.get(url, { responseType: 'arraybuffer', timeout: 15000 });
         if (r.data.byteLength > 5000) fs.writeFileSync(p, Buffer.from(r.data));
       } catch(e) {}
     }
@@ -24,8 +26,9 @@ async function ensureFonts(GF) {
   _FR = true;
 }
 
-const FB = '"RobotoBold","Roboto","DejaVu Sans",Arial,sans-serif';
-const FR = '"Roboto","DejaVu Sans",Arial,sans-serif';
+// Fonts: bold uses NotoArabicBold for Arabic support + Roboto fallback
+const FB = '"NotoArabicBold","RobotoBold","Roboto","DejaVu Sans",Arial,sans-serif';
+const FR = '"NotoArabic","Roboto","DejaVu Sans",Arial,sans-serif';
 
 function rr(ctx, x, y, w, h, r) {
   ctx.beginPath();
@@ -36,7 +39,16 @@ function rr(ctx, x, y, w, h, r) {
   ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
 }
 
-async function makeJoinCard({ name, threadName, memberCount, author, avatarUrl }) {
+async function fetchAvatar(uid) {
+  try {
+    const ax = require('axios');
+    const url = `https://graph.facebook.com/${uid}/picture?width=300&height=300&type=large`;
+    const res = await ax.get(url, { responseType: 'arraybuffer', timeout: 8000, maxRedirects: 10 });
+    return Buffer.from(res.data);
+  } catch(e) { return null; }
+}
+
+async function makeJoinCard({ name, threadName, memberCount, author, uid }) {
   let createCanvas, GlobalFonts, loadImage;
   try { ({ createCanvas, GlobalFonts, loadImage } = require('@napi-rs/canvas')); }
   catch(e) { throw new Error('@napi-rs/canvas: ' + e.message); }
@@ -50,18 +62,15 @@ async function makeJoinCard({ name, threadName, memberCount, author, avatarUrl }
   ctx.fillStyle = '#080e1a';
   ctx.fillRect(0, 0, W, H);
 
-  // Glow blobs
   const g1 = ctx.createRadialGradient(0, 0, 0, 0, 0, 480);
-  g1.addColorStop(0, 'rgba(0,220,110,0.30)');
-  g1.addColorStop(1, 'rgba(0,0,0,0)');
+  g1.addColorStop(0, 'rgba(0,220,110,0.30)'); g1.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
 
   const g2 = ctx.createRadialGradient(W, H, 0, W, H, 420);
-  g2.addColorStop(0, 'rgba(0,140,255,0.22)');
-  g2.addColorStop(1, 'rgba(0,0,0,0)');
+  g2.addColorStop(0, 'rgba(0,140,255,0.22)'); g2.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
 
-  // Outer border
+  // Border
   rr(ctx, 10, 10, W-20, H-20, 30);
   const borderG = ctx.createLinearGradient(10, 10, W-10, H-10);
   borderG.addColorStop(0, 'rgba(0,230,120,0.75)');
@@ -69,8 +78,8 @@ async function makeJoinCard({ name, threadName, memberCount, author, avatarUrl }
   borderG.addColorStop(1, 'rgba(0,230,120,0.75)');
   ctx.strokeStyle = borderG; ctx.lineWidth = 1.8; ctx.stroke();
 
-  // Avatar circle
-  const AX = 80, AY = H / 2, AR = 88;
+  // Avatar
+  const AX = 84, AY = H / 2, AR = 82;
 
   ctx.save();
   ctx.shadowBlur = 30; ctx.shadowColor = '#00e678';
@@ -82,36 +91,41 @@ async function makeJoinCard({ name, threadName, memberCount, author, avatarUrl }
 
   ctx.save();
   ctx.beginPath(); ctx.arc(AX, AY, AR, 0, Math.PI * 2); ctx.clip();
-  if (avatarUrl) {
+  const avatarBuf = uid ? await fetchAvatar(uid) : null;
+  if (avatarBuf) {
     try {
-      const img = await loadImage(avatarUrl);
+      const img = await loadImage(avatarBuf);
       ctx.drawImage(img, AX - AR, AY - AR, AR * 2, AR * 2);
     } catch(e) {
       ctx.fillStyle = 'rgba(0,230,120,0.18)'; ctx.fill();
-      ctx.font = `bold 48px ${FB}`; ctx.fillStyle = '#00e678';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText((name || '?')[0].toUpperCase(), AX, AY);
     }
   } else {
     ctx.fillStyle = 'rgba(0,230,120,0.18)'; ctx.fill();
-    ctx.font = `bold 48px ${FB}`; ctx.fillStyle = '#00e678';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText((name || '?')[0].toUpperCase(), AX, AY);
   }
   ctx.restore();
 
-  const LX = 190;
+  // First letter fallback overlay (only if no avatar rendered or avatar failed)
+  if (!avatarBuf) {
+    ctx.save();
+    ctx.font = `bold 46px ${FB}`; ctx.fillStyle = '#00e678';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText((name || '?')[0].toUpperCase(), AX, AY);
+    ctx.restore();
+  }
+
+  const LX = 192;
   ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
 
   // JOINED badge
-  const badgeG = ctx.createLinearGradient(LX, 60, LX + 280, 80);
+  const badgeG = ctx.createLinearGradient(LX, 50, LX + 280, 80);
   badgeG.addColorStop(0, '#00e678'); badgeG.addColorStop(1, '#0096ff');
-  ctx.font = `bold 12px ${FB}`; ctx.fillStyle = badgeG; ctx.textAlign = 'left';
-  ctx.fillText('● JOINED THE GROUP', LX, 72);
+  ctx.font = `bold 12px ${FB}`; ctx.fillStyle = badgeG;
+  ctx.fillText('● انضم إلى المجموعة', LX, 72);
 
   // Name
   const nameText = (name || '').length > 24 ? name.slice(0, 24) + '…' : (name || '—');
-  const nameSize = nameText.length > 18 ? 28 : 34;
+  const nameSize = nameText.length > 18 ? 26 : 32;
   const ng = ctx.createLinearGradient(LX, 90, LX + 580, 130);
   ng.addColorStop(0, '#ffffff'); ng.addColorStop(1, '#a0e0ff');
   ctx.font = `bold ${nameSize}px ${FB}`; ctx.fillStyle = ng;
@@ -123,13 +137,13 @@ async function makeJoinCard({ name, threadName, memberCount, author, avatarUrl }
   ctx.beginPath(); ctx.moveTo(LX, 144); ctx.lineTo(LX + 580, 144);
   ctx.strokeStyle = divG; ctx.lineWidth = 1; ctx.stroke();
 
-  // Info rows
-  const tn = (threadName || '—').length > 30 ? threadName.slice(0, 30) + '…' : (threadName || '—');
-  const auth = (author || 'Link Join').length > 26 ? author.slice(0, 26) + '…' : (author || 'Link Join');
+  // Info rows (Arabic labels)
+  const tn   = (threadName || '—').length > 28 ? threadName.slice(0, 28) + '…' : (threadName || '—');
+  const auth = (author || 'رابط انضمام').length > 24 ? author.slice(0, 24) + '…' : (author || 'رابط انضمام');
   const rows = [
-    { label: 'GROUP',    val: tn,            color: '#4dd2ff' },
-    { label: 'MEMBER',   val: `#${memberCount || '?'}`, color: '#00e678' },
-    { label: 'ADDED BY', val: auth,          color: '#d26cff' },
+    { label: 'المجموعة',    val: tn,                         color: '#4dd2ff' },
+    { label: 'عضو رقم',     val: `#${memberCount || '?'}`,   color: '#00e678' },
+    { label: 'أضافه',        val: auth,                       color: '#d26cff' },
   ];
 
   rows.forEach((row, i) => {
@@ -143,7 +157,7 @@ async function makeJoinCard({ name, threadName, memberCount, author, avatarUrl }
   // Footer
   ctx.font = `bold 12px ${FB}`; ctx.fillStyle = 'rgba(255,255,255,0.18)';
   ctx.textAlign = 'center';
-  ctx.fillText(`WELCOME  •  ${global?.config?.BOTNAME || 'MOMO'} BOT`, W / 2, H - 18);
+  ctx.fillText(`أهلاً وسهلاً  •  ${global?.config?.BOTNAME || 'MOMO'}`, W / 2, H - 18);
 
   return canvas.toBuffer('image/png');
 }
