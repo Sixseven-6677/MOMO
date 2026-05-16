@@ -47,6 +47,7 @@ function getAppstateFiles() {
 
 // ── إدارة العمليات ────────────────────────────────────────────────────────
 const botInstances = new Map(); // appstateFile → child process
+const _crashCounts = new Map(); // appstateFile → crash count
 
 function startBot(appstateFile, message) {
   if (message) logger(`[${appstateFile}] ${message}`, 'BOT');
@@ -68,6 +69,7 @@ function startBot(appstateFile, message) {
     // ── exit code 0: خرج نظيفاً — لا إعادة تشغيل ──────────────────────
     if (codeExit === 0) {
       logger(`[${appstateFile}] ⚪ خرج البوت نظيفاً (code 0) — لن يُعاد التشغيل`, 'RESTART');
+      _crashCounts.set(appstateFile, 0);
       return;
     }
 
@@ -75,16 +77,21 @@ function startBot(appstateFile, message) {
     if (x.startsWith('2') && x.length === 3) {
       const delay = parseInt(x.slice(1)) * 1000 || 3000;
       logger(`[${appstateFile}] 🔄 إعادة تنشيط مقصودة (code ${codeExit}) بعد ${delay/1000}s`, 'RESTART');
+      _crashCounts.set(appstateFile, 0);
       await new Promise(r => setTimeout(r, delay));
       return startBot(appstateFile, 'Reactivating...');
     }
 
-    // ── أي كود آخر (عطل/crash): لا إعادة تشغيل تلقائية ─────────────────
+    // ── أي كود آخر (عطل/crash): إعادة تشغيل تلقائية مع backoff ─────────
+    const crashes = (_crashCounts.get(appstateFile) || 0) + 1;
+    _crashCounts.set(appstateFile, crashes);
+    const delay = Math.min(5000 * crashes, 60000); // 5s, 10s, 15s... max 60s
     logger(
-      `[${appstateFile}] ⛔ توقف البوت بشكل غير متوقع (code ${codeExit}) الساعة ${ts}\n` +
-      `   ℹ️  لإعادة التشغيل: أعد النشر من Railway أو شغّل البوت يدوياً`,
+      `[${appstateFile}] ⚠️ توقف البوت (code ${codeExit}) الساعة ${ts} — إعادة تشغيل تلقائية رقم ${crashes} بعد ${delay/1000}s`,
       'RESTART'
     );
+    await new Promise(r => setTimeout(r, delay));
+    return startBot(appstateFile, `Auto-restart #${crashes} after crash (code ${codeExit})...`);
   });
 
   child.on('error', (error) => {
