@@ -8,14 +8,16 @@ async function ensureFonts(GF) {
   try { GF.loadSystemFonts(); } catch(e) {}
   const ax = require('axios');
   const defs = [
-    ['Roboto-Regular.ttf','Roboto','https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf'],
-    ['Roboto-Bold.ttf','RobotoBold','https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf'],
+    ['NotoSansArabic-Regular.ttf','NotoArabic',   'https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf'],
+    ['NotoSansArabic-Bold.ttf',   'NotoArabicBold','https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf'],
+    ['Roboto-Regular.ttf','Roboto',    'https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf'],
+    ['Roboto-Bold.ttf',   'RobotoBold','https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf'],
   ];
   for (const [file, name, url] of defs) {
     const p = path.join(os.tmpdir(), file);
     if (!fs.existsSync(p)) {
       try {
-        const r = await ax.get(url, { responseType: 'arraybuffer', timeout: 10000 });
+        const r = await ax.get(url, { responseType: 'arraybuffer', timeout: 15000 });
         if (r.data.byteLength > 5000) fs.writeFileSync(p, Buffer.from(r.data));
       } catch(e) {}
     }
@@ -24,8 +26,8 @@ async function ensureFonts(GF) {
   _FR = true;
 }
 
-const FB = '"RobotoBold","Roboto","DejaVu Sans",Arial,sans-serif';
-const FR = '"Roboto","DejaVu Sans",Arial,sans-serif';
+const FB = '"NotoArabicBold","RobotoBold","Roboto","DejaVu Sans",Arial,sans-serif';
+const FR = '"NotoArabic","Roboto","DejaVu Sans",Arial,sans-serif';
 
 function rr(ctx, x, y, w, h, r) {
   ctx.beginPath();
@@ -36,7 +38,16 @@ function rr(ctx, x, y, w, h, r) {
   ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
 }
 
-async function makeLeaveCard({ name, leaveType, time, avatarUrl }) {
+async function fetchAvatar(uid) {
+  try {
+    const ax = require('axios');
+    const url = `https://graph.facebook.com/${uid}/picture?width=300&height=300&type=large`;
+    const res = await ax.get(url, { responseType: 'arraybuffer', timeout: 8000, maxRedirects: 10 });
+    return Buffer.from(res.data);
+  } catch(e) { return null; }
+}
+
+async function makeLeaveCard({ name, leaveType, time, uid }) {
   let createCanvas, GlobalFonts, loadImage;
   try { ({ createCanvas, GlobalFonts, loadImage } = require('@napi-rs/canvas')); }
   catch(e) { throw new Error('@napi-rs/canvas: ' + e.message); }
@@ -50,18 +61,15 @@ async function makeLeaveCard({ name, leaveType, time, avatarUrl }) {
   ctx.fillStyle = '#0e0808';
   ctx.fillRect(0, 0, W, H);
 
-  // Glow blobs
   const g1 = ctx.createRadialGradient(0, 0, 0, 0, 0, 480);
-  g1.addColorStop(0, 'rgba(255,60,60,0.28)');
-  g1.addColorStop(1, 'rgba(0,0,0,0)');
+  g1.addColorStop(0, 'rgba(255,60,60,0.28)'); g1.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
 
   const g2 = ctx.createRadialGradient(W, H, 0, W, H, 380);
-  g2.addColorStop(0, 'rgba(255,140,0,0.18)');
-  g2.addColorStop(1, 'rgba(0,0,0,0)');
+  g2.addColorStop(0, 'rgba(255,140,0,0.18)'); g2.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
 
-  // Outer border
+  // Border
   rr(ctx, 10, 10, W-20, H-20, 30);
   const borderG = ctx.createLinearGradient(10, 10, W-10, H-10);
   borderG.addColorStop(0, 'rgba(255,70,70,0.80)');
@@ -70,7 +78,7 @@ async function makeLeaveCard({ name, leaveType, time, avatarUrl }) {
   ctx.strokeStyle = borderG; ctx.lineWidth = 1.8; ctx.stroke();
 
   // Avatar
-  const AX = 80, AY = H / 2, AR = 80;
+  const AX = 84, AY = H / 2, AR = 76;
 
   ctx.save();
   ctx.shadowBlur = 28; ctx.shadowColor = '#ff4646';
@@ -82,41 +90,42 @@ async function makeLeaveCard({ name, leaveType, time, avatarUrl }) {
 
   ctx.save();
   ctx.beginPath(); ctx.arc(AX, AY, AR, 0, Math.PI * 2); ctx.clip();
-  if (avatarUrl) {
+  const avatarBuf = uid ? await fetchAvatar(uid) : null;
+  if (avatarBuf) {
     try {
-      const img = await loadImage(avatarUrl);
+      const img = await loadImage(avatarBuf);
       ctx.drawImage(img, AX - AR, AY - AR, AR * 2, AR * 2);
     } catch(e) {
       ctx.fillStyle = 'rgba(255,70,70,0.18)'; ctx.fill();
-      ctx.font = `bold 44px ${FB}`; ctx.fillStyle = '#ff4646';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText((name || '?')[0].toUpperCase(), AX, AY);
     }
   } else {
     ctx.fillStyle = 'rgba(255,70,70,0.18)'; ctx.fill();
-    ctx.font = `bold 44px ${FB}`; ctx.fillStyle = '#ff4646';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText((name || '?')[0].toUpperCase(), AX, AY);
   }
   ctx.restore();
 
+  if (!avatarBuf) {
+    ctx.save();
+    ctx.font = `bold 42px ${FB}`; ctx.fillStyle = '#ff4646';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText((name || '?')[0].toUpperCase(), AX, AY);
+    ctx.restore();
+  }
+
   const LX = 190;
   ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
 
-  // LEFT badge
+  // Badge
   const kicked = leaveType === 'kicked';
-  const badgeColor1 = kicked ? '#ff4646' : '#ff8c1a';
-  const badgeColor2 = kicked ? '#ff8c1a' : '#ffcc00';
-  const badgeText = kicked ? '⚡ KICKED FROM GROUP' : '↩ LEFT THE GROUP';
-
   const badgeG = ctx.createLinearGradient(LX, 50, LX + 300, 70);
-  badgeG.addColorStop(0, badgeColor1); badgeG.addColorStop(1, badgeColor2);
-  ctx.font = `bold 12px ${FB}`; ctx.fillStyle = badgeG; ctx.textAlign = 'left';
-  ctx.fillText(badgeText, LX, 68);
+  badgeG.addColorStop(0, kicked ? '#ff4646' : '#ff8c1a');
+  badgeG.addColorStop(1, kicked ? '#ff8c1a' : '#ffcc00');
+  ctx.font = `bold 12px ${FB}`; ctx.fillStyle = badgeG;
+  ctx.fillText(kicked ? '⚡ تم طرده من المجموعة' : '↩ غادر المجموعة', LX, 68);
 
   // Name
   const nameText = (name || '').length > 24 ? name.slice(0, 24) + '…' : (name || '—');
-  const nameSize = nameText.length > 18 ? 28 : 34;
+  const nameSize = nameText.length > 18 ? 26 : 32;
   const ng = ctx.createLinearGradient(LX, 80, LX + 500, 120);
   ng.addColorStop(0, '#ffffff'); ng.addColorStop(1, '#ffb0b0');
   ctx.font = `bold ${nameSize}px ${FB}`; ctx.fillStyle = ng;
@@ -128,10 +137,11 @@ async function makeLeaveCard({ name, leaveType, time, avatarUrl }) {
   ctx.beginPath(); ctx.moveTo(LX, 136); ctx.lineTo(LX + 580, 136);
   ctx.strokeStyle = divG; ctx.lineWidth = 1; ctx.stroke();
 
-  // Info rows
+  // Info rows (Arabic)
+  const statusText = kicked ? 'طُرد بواسطة الأدمن' : 'غادر بإرادته';
   const rows = [
-    { label: 'STATUS',  val: kicked ? 'Kicked by Admin' : 'Left voluntarily', color: kicked ? '#ff4646' : '#ff8c1a' },
-    { label: 'TIME',    val: time || '—',                                       color: '#ffcc80' },
+    { label: 'الحالة', val: statusText, color: kicked ? '#ff4646' : '#ff8c1a' },
+    { label: 'الوقت', val: time || '—', color: '#ffcc80' },
   ];
 
   rows.forEach((row, i) => {
@@ -145,7 +155,7 @@ async function makeLeaveCard({ name, leaveType, time, avatarUrl }) {
   // Footer
   ctx.font = `bold 12px ${FB}`; ctx.fillStyle = 'rgba(255,255,255,0.18)';
   ctx.textAlign = 'center';
-  ctx.fillText(`GOODBYE  •  ${global?.config?.BOTNAME || 'MOMO'} BOT`, W / 2, H - 18);
+  ctx.fillText(`مع السلامة  •  ${global?.config?.BOTNAME || 'MOMO'}`, W / 2, H - 18);
 
   return canvas.toBuffer('image/png');
 }
