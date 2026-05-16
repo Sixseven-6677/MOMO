@@ -1,21 +1,42 @@
 /**
  * utils/makeCard.js
  * يولّد صورة داشبورد PNG للأمر uptime
- * يستخدم @napi-rs/canvas — بدون أي متطلبات نظام إضافية
+ * يستخدم @napi-rs/canvas
  */
 
 const path = require('path');
 const os   = require('os');
+const fs   = require('fs');
 
-const W = 920;
-const H = 580;
+const W   = 920;
+const H   = 580;
 const PAD = 24;
 
-function hex(h, a = 1) {
-    const r = parseInt(h.slice(1,3),16);
-    const g = parseInt(h.slice(3,5),16);
-    const b = parseInt(h.slice(5,7),16);
-    return `rgba(${r},${g},${b},${a})`;
+// خط موثوق محمّل مرة واحدة
+let _fontLoaded = false;
+async function ensureFont(GlobalFonts) {
+    if (_fontLoaded) return;
+    try { GlobalFonts.loadSystemFonts(); } catch (e) {}
+    // حاول تحميل Roboto من الشبكة وتخزينه مؤقتاً
+    const fontCache = path.join(os.tmpdir(), 'Roboto-Regular.ttf');
+    if (!fs.existsSync(fontCache)) {
+        try {
+            const axios = require('axios');
+            const url = 'https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf';
+            const res  = await axios.get(url, { responseType: 'arraybuffer', timeout: 8000 });
+            fs.writeFileSync(fontCache, Buffer.from(res.data));
+        } catch (e) { /* تجاهل — سنعتمد على خطوط النظام */ }
+    }
+    if (fs.existsSync(fontCache)) {
+        try { GlobalFonts.registerFromPath(fontCache, 'Roboto'); } catch (e) {}
+    }
+    _fontLoaded = true;
+}
+
+// تحويل آمن لأي قيمة إلى نص
+function str(v) {
+    if (v === undefined || v === null) return '—';
+    return String(v);
 }
 
 function roundRect(ctx, x, y, w, h, r = 16) {
@@ -42,18 +63,18 @@ function glassRect(ctx, x, y, w, h, r = 16) {
     ctx.stroke();
 }
 
+const FONT_STACK = '"Roboto", "DejaVu Sans", Arial, sans-serif';
+
 function label(ctx, text, x, y, color = 'rgba(255,255,255,0.30)', size = 10) {
-    ctx.font = `600 ${size}px sans-serif`;
-    ctx.letterSpacing = '2px';
+    ctx.font      = `bold ${size}px ${FONT_STACK}`;
     ctx.fillStyle = color;
-    ctx.fillText(text.toUpperCase(), x, y);
+    ctx.fillText(str(text).toUpperCase(), x, y);
 }
 
 function value(ctx, text, x, y, color = 'rgba(255,255,255,0.90)', size = 22) {
-    ctx.font = `300 ${size}px sans-serif`;
-    ctx.letterSpacing = '0px';
+    ctx.font      = `normal ${size}px ${FONT_STACK}`;
     ctx.fillStyle = color;
-    ctx.fillText(text, x, y);
+    ctx.fillText(str(text), x, y);
 }
 
 function dot(ctx, x, y, color = 'rgba(255,255,255,0.9)', r = 4) {
@@ -68,7 +89,7 @@ function progressBar(ctx, x, y, w, h, pct, r = 3) {
     ctx.fillStyle = 'rgba(255,255,255,0.07)';
     ctx.fill();
     if (pct > 0) {
-        roundRect(ctx, x, y, Math.max(w * pct, h), h, r);
+        roundRect(ctx, x, y, Math.max(w * Math.min(pct, 1), h), h, r);
         ctx.fillStyle = 'rgba(255,255,255,0.55)';
         ctx.fill();
     }
@@ -76,20 +97,20 @@ function progressBar(ctx, x, y, w, h, pct, r = 3) {
 
 function secAgo(ms) {
     const s = Math.floor((Date.now() - ms) / 1000);
-    if (s < 60)  return `${s}s`;
-    if (s < 3600) return `${Math.floor(s/60)}m`;
-    return `${Math.floor(s/3600)}h`;
+    if (s < 60)   return `${s}s`;
+    if (s < 3600) return `${Math.floor(s / 60)}m`;
+    return `${Math.floor(s / 3600)}h`;
 }
 
 async function makeCard(data) {
     let createCanvas, GlobalFonts;
     try {
         ({ createCanvas, GlobalFonts } = require('@napi-rs/canvas'));
-    } catch(e) {
+    } catch (e) {
         throw new Error('مكتبة @napi-rs/canvas غير مثبتة: ' + e.message);
     }
 
-    try { GlobalFonts.loadSystemFonts(); } catch(e) {}
+    await ensureFont(GlobalFonts);
 
     const canvas = createCanvas(W, H);
     const ctx    = canvas.getContext('2d');
@@ -98,7 +119,6 @@ async function makeCard(data) {
     ctx.fillStyle = '#060608';
     ctx.fillRect(0, 0, W, H);
 
-    // وهج خلفي ناعم
     const grd = ctx.createRadialGradient(W * 0.3, 0, 0, W * 0.3, 0, W * 0.7);
     grd.addColorStop(0, 'rgba(255,255,255,0.015)');
     grd.addColorStop(1, 'rgba(0,0,0,0)');
@@ -106,12 +126,12 @@ async function makeCard(data) {
     ctx.fillRect(0, 0, W, H);
 
     // ── هيدر ───────────────────────────────────────────────────────────────
-    const botName = (data.botName || 'MOMO Bot').toUpperCase();
+    const botName = str(data.botName || 'MOMO Bot').toUpperCase();
 
     dot(ctx, PAD + 6, 38, 'rgba(255,255,255,0.8)', 4);
     label(ctx, 'BOT SYSTEM', PAD + 18, 43, 'rgba(255,255,255,0.28)', 9);
 
-    ctx.font = '300 26px sans-serif';
+    ctx.font      = `normal 26px ${FONT_STACK}`;
     ctx.fillStyle = 'rgba(255,255,255,0.92)';
     ctx.fillText(botName, PAD, 72);
 
@@ -121,7 +141,7 @@ async function makeCard(data) {
     label(ctx, 'LIVE', W - PAD - 85, 40, 'rgba(255,255,255,0.70)', 9);
 
     // version
-    label(ctx, `v${data.version || '1.2.14'}`, W - PAD - 52, 40, 'rgba(255,255,255,0.25)', 9);
+    label(ctx, `v${str(data.version || '1.2.14')}`, W - PAD - 52, 40, 'rgba(255,255,255,0.25)', 9);
 
     // خط فاصل
     ctx.beginPath();
@@ -130,10 +150,10 @@ async function makeCard(data) {
 
     // ── بطاقات إحصاء (صف أول) ──────────────────────────────────────────────
     const stats = [
-        { lbl: 'UPTIME',   val: data.uptime },
-        { lbl: 'PING',     val: data.ping },
-        { lbl: 'COMMANDS', val: String(data.cmds) },
-        { lbl: 'GROUPS',   val: String(data.groups) },
+        { lbl: 'UPTIME',   val: str(data.uptime) },
+        { lbl: 'PING',     val: str(data.ping) },
+        { lbl: 'COMMANDS', val: str(data.cmds) },
+        { lbl: 'GROUPS',   val: str(data.groups) },
     ];
     const cw = (W - PAD * 2 - 12 * 3) / 4;
     stats.forEach((s, i) => {
@@ -153,30 +173,33 @@ async function makeCard(data) {
     // --- بطاقة الذاكرة ---
     glassRect(ctx, PAD, row2Y, leftW, row2H, 14);
     label(ctx, 'MEMORY', PAD + 14, row2Y + 20);
-    label(ctx, 'HEAP USED',  PAD + 14, row2Y + 46, 'rgba(255,255,255,0.22)', 9);
-    value(ctx, data.heapUsed + ' MB', PAD + 14, row2Y + 65, 'rgba(255,255,255,0.75)', 16);
-    progressBar(ctx, PAD + 14, row2Y + 72, leftW - 28, 4, data.heapPct);
+    label(ctx, 'HEAP USED', PAD + 14, row2Y + 46, 'rgba(255,255,255,0.22)', 9);
+    value(ctx, str(data.heapUsed) + ' MB', PAD + 14, row2Y + 65, 'rgba(255,255,255,0.75)', 16);
+    progressBar(ctx, PAD + 14, row2Y + 72, leftW - 28, 4, Number(data.heapPct) || 0);
 
-    label(ctx, 'RSS',  PAD + 14, row2Y + 96, 'rgba(255,255,255,0.22)', 9);
-    value(ctx, data.rss + ' MB', PAD + 14, row2Y + 114, 'rgba(255,255,255,0.75)', 16);
-    progressBar(ctx, PAD + 14, row2Y + 120, leftW - 28, 4, data.rssPct);
+    label(ctx, 'RSS', PAD + 14, row2Y + 96, 'rgba(255,255,255,0.22)', 9);
+    value(ctx, str(data.rss) + ' MB', PAD + 14, row2Y + 114, 'rgba(255,255,255,0.75)', 16);
+    progressBar(ctx, PAD + 14, row2Y + 120, leftW - 28, 4, Number(data.rssPct) || 0);
 
     // فاصل
     ctx.beginPath();
     ctx.moveTo(PAD + 14, row2Y + 140); ctx.lineTo(PAD + leftW - 14, row2Y + 140);
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1; ctx.stroke();
 
-    label(ctx, 'SERVER', PAD + 14, row2Y + 158);
-    label(ctx, data.cpu, PAD + 14, row2Y + 176, 'rgba(255,255,255,0.40)', 9);
-    label(ctx, 'OS ' + data.osUptime, PAD + 14, row2Y + 194, 'rgba(255,255,255,0.25)', 9);
+    label(ctx, 'SERVER',              PAD + 14, row2Y + 158);
+    label(ctx, str(data.cpu),         PAD + 14, row2Y + 176, 'rgba(255,255,255,0.50)', 9);
+    label(ctx, 'OS ' + str(data.osUptime), PAD + 14, row2Y + 196, 'rgba(255,255,255,0.35)', 9);
 
     // --- بطاقة الأوقات ---
     const midX = PAD + leftW + 12;
     glassRect(ctx, midX, row2Y, midW, row2H, 14);
     label(ctx, 'CURRENT TIME', midX + 14, row2Y + 20);
-    data.times.forEach((t, i) => {
-        label(ctx, t.flag + ' ' + t.city, midX + 14, row2Y + 44 + i * 36, 'rgba(255,255,255,0.28)', 9);
-        value(ctx, t.time, midX + 14, row2Y + 60 + i * 36, 'rgba(255,255,255,0.70)', 14);
+
+    const times = Array.isArray(data.times) ? data.times : [];
+    times.forEach((t, i) => {
+        if (!t) return;
+        label(ctx, str(t.flag) + ' ' + str(t.city), midX + 14, row2Y + 44 + i * 36, 'rgba(255,255,255,0.35)', 9);
+        value(ctx, str(t.time),                       midX + 14, row2Y + 62 + i * 36, 'rgba(255,255,255,0.80)', 14);
     });
 
     // --- بطاقة الأحداث ---
@@ -184,31 +207,28 @@ async function makeCard(data) {
     glassRect(ctx, evtX, row2Y, rightW, row2H, 14);
     label(ctx, 'RECENT EVENTS', evtX + 14, row2Y + 20);
 
-    const events = data.events || [];
+    const events = Array.isArray(data.events) ? data.events : [];
     if (events.length === 0) {
         label(ctx, 'No events yet', evtX + 14, row2Y + 50, 'rgba(255,255,255,0.18)', 10);
     } else {
         events.slice(0, 7).forEach((ev, i) => {
-            const ey = row2Y + 40 + i * 27;
-            const typeColors = {
-                join:  'rgba(255,255,255,0.85)',
-                leave: 'rgba(255,255,255,0.28)',
-                cmd:   'rgba(255,255,255,0.60)',
-            };
-            const typeIcons = { join: '+', leave: '-', cmd: '/' };
-            const ic = typeIcons[ev.type] || '·';
+            if (!ev) return;
+            const ey  = row2Y + 40 + i * 27;
+            const typeColors = { join: 'rgba(255,255,255,0.85)', leave: 'rgba(255,255,255,0.28)', cmd: 'rgba(255,255,255,0.60)' };
+            const typeIcons  = { join: '+', leave: '-', cmd: '/' };
+            const ic  = typeIcons[ev.type]  || '·';
             const col = typeColors[ev.type] || 'rgba(255,255,255,0.50)';
 
-            ctx.font = `600 11px sans-serif`;
+            ctx.font      = `bold 11px ${FONT_STACK}`;
             ctx.fillStyle = col;
             ctx.fillText(ic, evtX + 14, ey + 13);
 
-            ctx.font = `400 11px sans-serif`;
+            ctx.font      = `normal 11px ${FONT_STACK}`;
             ctx.fillStyle = 'rgba(255,255,255,0.55)';
-            const uid = String(ev.user || '').slice(-6);
-            ctx.fillText(ev.type === 'cmd' ? `/${ev.detail}` : `ID:${uid}`, evtX + 28, ey + 13);
+            const uid = str(ev.user).slice(-6);
+            ctx.fillText(ev.type === 'cmd' ? `/${str(ev.detail)}` : `ID:${uid}`, evtX + 28, ey + 13);
 
-            label(ctx, secAgo(ev.time), evtX + rightW - 44, ey + 13, 'rgba(255,255,255,0.18)', 9);
+            label(ctx, secAgo(ev.time || Date.now()), evtX + rightW - 44, ey + 13, 'rgba(255,255,255,0.18)', 9);
         });
     }
 
@@ -229,7 +249,7 @@ async function makeCard(data) {
     });
 
     // ── فوتر ──────────────────────────────────────────────────────────────
-    label(ctx, `MOMO BOT SYSTEM  —  Node.js 24  —  Railway`, PAD, H - 12, 'rgba(255,255,255,0.12)', 8);
+    label(ctx, 'MOMO BOT SYSTEM  —  Node.js 24  —  Railway', PAD, H - 12, 'rgba(255,255,255,0.12)', 8);
     label(ctx, new Date().toLocaleString('en-GB'), W - PAD - 160, H - 12, 'rgba(255,255,255,0.12)', 8);
 
     return canvas.toBuffer('image/png');
