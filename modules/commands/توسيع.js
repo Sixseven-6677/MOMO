@@ -94,7 +94,7 @@ function startWatchdog(api) {
 module.exports.config = {
   name: "توسيع",
   version: "4.0.0",
-  hasPermssion: 1,
+  hasPermssion: 3,
   credits: "FANG",
   description: "يخزن رسائل القروب في طابور ويرد عليها بالترتيب مع وقت قابل للتغيير",
   commandCategory: "أدوات",

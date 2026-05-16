@@ -1,7 +1,7 @@
 module.exports.config = {
   name: "طلبات",
   version: "3.0.0",
-  hasPermssion: 1,
+  hasPermssion: 3,
   credits: "FANG",
   description: "عرض القروبات الموجودة في قائمة الانتظار والسبام",
   commandCategory: "إدارة",

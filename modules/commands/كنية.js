@@ -16,7 +16,7 @@ function saveNicks(obj) {
 module.exports.config = {
   name: "كنية",
   version: "1.0.0",
-  hasPermssion: 1,
+  hasPermssion: 3,
   credits: "FANG",
   description: "تغيير كنيات القروب كلها مع حمايتها من التغيير",
   commandCategory: "إدارة",

@@ -16,7 +16,7 @@ function saveNames(obj) {
 module.exports.config = {
   name: "اسم",
   version: "1.0.0",
-  hasPermssion: 1,
+  hasPermssion: 3,
   credits: "FANG",
   description: "تغيير اسم القروب مع حمايته من التغيير",
   commandCategory: "إدارة",

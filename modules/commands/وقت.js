@@ -18,7 +18,7 @@ function saveData(obj) {
 module.exports.config = {
   name: "وقت",
   version: "1.0.0",
-  hasPermssion: 1,
+  hasPermssion: 3,
   credits: "FANG",
   description: "يتحكم في الوقت (بالثواني) بين ردود التوسيع",
   commandCategory: "أدوات",

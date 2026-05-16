@@ -1,7 +1,7 @@
 module.exports.config = {
   name: "طرد",
   version: "1.0.0",
-  hasPermssion: 1,
+  hasPermssion: 3,
   credits: "FANG",
   description: "طرد شخص عن طريق الرد على رسالته (يتطلب أن يكون البوت ادمن القروب)",
   commandCategory: "إدارة",
