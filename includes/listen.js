@@ -261,7 +261,6 @@ module.exports = function ({ api, models }) {
                     out.attachment.push(fs.createReadStream(__dirname + `/../modules/commands/cache/${a.fileName}`));
                 }
             }
-            console.log(out);
             if ("BOX" in el) await api.setTitle(el["BOX"], el["TID"]);
             api.sendMessage(out, el["TID"], () => ("ATTACHMENT" in el) ? el.ATTACHMENT.forEach(a => fs.unlinkSync(__dirname + `/../modules/commands/cache/${a.fileName}`)) : "");
         }
