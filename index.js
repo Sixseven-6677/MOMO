@@ -82,16 +82,11 @@ function startBot(appstateFile, message) {
       return startBot(appstateFile, 'Reactivating...');
     }
 
-    // ── أي كود آخر (عطل/crash): إعادة تشغيل تلقائية مع backoff ─────────
-    const crashes = (_crashCounts.get(appstateFile) || 0) + 1;
-    _crashCounts.set(appstateFile, crashes);
-    const delay = Math.min(5000 * crashes, 60000); // 5s, 10s, 15s... max 60s
+    // ── أي كود آخر: لا إعادة تشغيل تلقائية — فقط نشر GitHub يُعيد التشغيل ─
     logger(
-      `[${appstateFile}] ⚠️ توقف البوت (code ${codeExit}) الساعة ${ts} — إعادة تشغيل تلقائية رقم ${crashes} بعد ${delay/1000}s`,
+      `[${appstateFile}] ℹ️ توقف البوت (code ${codeExit}) الساعة ${ts} — لن يُعاد التشغيل إلا عبر نشر GitHub`,
       'RESTART'
     );
-    await new Promise(r => setTimeout(r, delay));
-    return startBot(appstateFile, `Auto-restart #${crashes} after crash (code ${codeExit})...`);
   });
 
   child.on('error', (error) => {
