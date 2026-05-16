@@ -2,14 +2,13 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
   const fs = require("fs");
   const logger = require("../../utils/log.js");
   const axios = require('axios');
-  const request = require('request');
   const path = require('path');
   const moment = require("moment-timezone");
   const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
   return async function ({ event }) {
     const dateNow = Date.now();
-    const time = moment.tz("Asia/Ho_Chi_Minh").format("HH:MM:ss DD/MM/YYYY");
+    const time = moment.tz("Asia/Ho_Chi_Minh").format("HH:mm:ss DD/MM/YYYY");
     const times = process.uptime(), hours = Math.floor(times / (60 * 60)), minutes = Math.floor((times % (60 * 60)) / 60), seconds = Math.floor(times % 60);
 
     const { allowInbox, PREFIX, ADMINBOT, NDH, DeveloperMode, adminOnly, keyAdminOnly, ndhOnly, adminPaseOnly } = global.config;
@@ -160,8 +159,8 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
     if (command.config.hasPermssion > permssion)
       return api.sendMessage(`❌ هذا الأمر (${command.config.name}) يتطلب: ${quyenhan}`, event.threadID, event.messageID);
 
-    if (!client.cooldowns.has(command.config.name)) client.cooldowns.set(command.config.name, new Map());
-    const timestamps = client.cooldowns.get(command.config.name);
+    if (!global.client.cooldowns.has(command.config.name)) global.client.cooldowns.set(command.config.name, new Map());
+    const timestamps = global.client.cooldowns.get(command.config.name);
     const expirationTime = (command.config.cooldowns || 1) * 1000;
     if (timestamps.has(senderID) && dateNow < timestamps.get(senderID) + expirationTime)
       return api.setMessageReaction('⏳', event.messageID, err => {}, true);
