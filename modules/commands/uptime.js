@@ -60,7 +60,7 @@ module.exports.run = async function({ api, event }) {
   const cmds   = global.client?.commands?.size  || 0;
   const groups = global.data?.allThreadID?.length || 0;
   const events = (global.client?.recentEvents || []).slice(0, 7);
-  const botName = global.config?.BOTNAME || 'MOMO';
+  const botName = global.config?.BOTNAME || 'Fang';
 
   // ── توليد الصورة ──────────────────────────────────────────────────────
   let imgPath;
