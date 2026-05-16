@@ -2,7 +2,7 @@
 //========= Require all variable need use =========//
 /////////////////////////////////////////////////////
 const moment = require("moment-timezone");
-const { readdirSync, readFileSync, writeFileSync, existsSync, unlinkSync, rm } = require("fs-extra");
+const { readdirSync, readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync, rm } = require("fs-extra");
 const { join, resolve } = require("path");
 const { execSync } = require('child_process');
 const logger = require("./utils/log.js");
@@ -247,7 +247,7 @@ function onBot({ models: botModel }) {
             try {
                 const fresh = loginApiData.getAppState();
                 if (fresh && fresh.length > 0) {
-                    writeFileSync(appStateFile, JSON.stringify(fresh, null, '	'), 'utf8');
+                    writeFileSync(appStateFile, JSON.stringify(fresh, null, '   '), 'utf8');
                     const { pushAppstate } = require('./utils/persistence');
                     pushAppstate(_refreshFile).catch(() => {});
                 }
@@ -280,7 +280,7 @@ function onBot({ models: botModel }) {
                                     execSync('npm --no-package-lock --save install' + ' ' + reqDependencies + (module.config.dependencies[reqDependencies] == '*' || module.config.dependencies[reqDependencies] == '' ? '' : '@' + module.config.dependencies[reqDependencies]), { 'stdio': 'inherit', 'env': process['env'], 'shell': true, 'cwd': join(__dirname, 'nodemodules') });
                                     for (let i = 1; i <= 3; i++) {
                                         try {
-                                            require['cache'] = {};
+                                            delete require.cache[reqDependenciesPath];
                                             if (listPackage.hasOwnProperty(reqDependencies) || listbuiltinModules.includes(reqDependencies)) global['nodemodule'][reqDependencies] = require(reqDependencies);
                                             else global['nodemodule'][reqDependencies] = require(reqDependenciesPath);
                                             check = true;
@@ -344,8 +344,8 @@ function onBot({ models: botModel }) {
                                     execSync('npm --no-package-lock --save install ' + dependency + (event.config.dependencies[dependency] == '*' || event.config.dependencies[dependency] == '' ? '' : '@' + event.config.dependencies[dependency]), { 'stdio': 'inherit', 'env': process['env'], 'shell': true, 'cwd': join(__dirname, 'nodemodules') });
                                     for (let i = 1; i <= 3; i++) {
                                         try {
-                                            require['cache'] = {};
-                                            if (global.nodemodule.includes(dependency)) break;
+                                            delete require.cache[_0x21abed];
+                                            if (global.nodemodule.hasOwnProperty(dependency)) break;
                                             if (listPackage.hasOwnProperty(dependency) || listbuiltinModules.includes(dependency)) global.nodemodule[dependency] = require(dependency);
                                             else global.nodemodule[dependency] = require(_0x21abed);
                                             check = true;

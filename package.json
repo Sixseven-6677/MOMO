@@ -30,11 +30,8 @@
         "chalk": "^4.1.2",
         "chalkercli": "^1.6.4",
         "cheerio": "^1.0.0-rc.12",
-        "child_process": "latest",
         "cors": "^2.8.5",
-        "crypto": "latest",
         "crypto-js": "latest",
-        "deasync": "^0.1.28",
         "duplexify": "^4.1.2",
         "encode32": "latest",
         "eval": "latest",
@@ -65,17 +62,12 @@
         "mqtt": "^4.3.7",
         "ms": "latest",
         "node-cron": "^3.0.3",
-        "node-fetch": "^3.3.2",
         "node-schedule": "^2.1.1",
         "node-superfetch": "^0.3.3",
         "npmlog": "latest",
-        "os": "latest",
         "pastebin-api": "^7.0.0",
-        "path": "latest",
         "pretty-ms": "7.0.1",
         "readable-stream": "^4.4.0",
-        "readline": "latest",
-        "request": "latest",
         "semver": "latest",
         "sequelize": "latest",
         "set-cookie": "^0.0.4",
@@ -89,10 +81,9 @@
         "uuid": "latest",
         "wikijs": "^6.4.1",
         "ws": "^8.13.0",
-        "youtube-search-api": "^1.2.1",
-        "ytdl-core": "^4.11.5"
+        "youtube-search-api": "^1.2.1"
     },
     "engines": {
-        "node": ">=20"
+        "node": ">=24"
     }
 }

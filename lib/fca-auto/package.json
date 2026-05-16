@@ -25,7 +25,6 @@
     "chalk": "4.1.2",
     "cheerio": "latest",
     "crypto-js": "latest",
-    "deasync": "^0.1.28",
     "duplexify": "^4.1.2",
     "encode32": "latest",
     "express": "latest",
@@ -37,12 +36,8 @@
     "moment": "^2.29.4",
     "mqtt": "^4.3.7",
     "npmlog": "latest",
-    "os": "latest",
-    "path": "latest",
     "pretty-ms": "7.0.1",
     "readable-stream": "^4.4.0",
-    "readline": "latest",
-    "request": "latest",
     "speakeasy": "latest",
     "totp-generator": "latest",
     "tough-cookie": "^4.1.2",
@@ -52,7 +47,7 @@
     "figlet": "latest"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "devDependencies": {
     "eslint": "^8.40.0",

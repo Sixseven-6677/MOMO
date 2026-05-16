@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
+nixPkgs = ["nodejs_24", "python3", "gcc", "gnumake"]
 
 [phases.install]
 cmds = ["npm install --legacy-peer-deps"]
@@ -8,4 +8,4 @@ cmds = ["npm install --legacy-peer-deps"]
 cmd = "bash start.sh"
 
 [variables]
-NIXPACKS_NODE_VERSION = "20"
+NIXPACKS_NODE_VERSION = "24"
