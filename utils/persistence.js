@@ -16,6 +16,14 @@ const APPSTATE_FILES = ['appstate.json'];
 
 const shaCache = {};
 
+// ── حماية: لا ترفع نفس الملف أكثر من مرة كل 30 دقيقة ──────────────────
+const _lastPushMs = {};
+const PUSH_MIN_INTERVAL = 30 * 60 * 1000; // 30 دقيقة
+
+// ── حماية: pushAppstateNow لا تُشغَّل إلا مرة واحدة كل 60 دقيقة لكل اسم ملف ──
+const _lastLoginPushMs = {};
+const LOGIN_PUSH_MIN_INTERVAL = 60 * 60 * 1000; // ساعة
+
 function log(msg) { console.log('[Persistence] ' + msg); }
 
 function ensureDir() {
@@ -38,6 +46,16 @@ async function fetchSha(apiPath) {
 async function pushToGitHub(apiPath, localPath, commitMsg) {
   if (!TOKEN) return false;
   if (!fs.existsSync(localPath)) return false;
+
+  // ── لا ترفع نفس الملف أكثر من مرة كل 30 دقيقة ──────────────────────
+  const now = Date.now();
+  if (_lastPushMs[apiPath] && now - _lastPushMs[apiPath] < PUSH_MIN_INTERVAL) {
+    const remaining = Math.round((PUSH_MIN_INTERVAL - (now - _lastPushMs[apiPath])) / 60000);
+    log(`skipping push for ${path.basename(apiPath)} — next push in ${remaining} min`);
+    return false;
+  }
+  _lastPushMs[apiPath] = now;
+
   try {
     const content  = fs.readFileSync(localPath);
     const b64      = content.toString('base64');
@@ -55,6 +73,8 @@ async function pushToGitHub(apiPath, localPath, commitMsg) {
     return true;
   } catch (e) {
     if (e.response && e.response.status === 409) {
+      // تعارض — امسح الـ throttle حتى نُعيد المحاولة مرة واحدة فقط
+      delete _lastPushMs[apiPath];
       try { shaCache[apiPath] = await fetchSha(apiPath); return pushToGitHub(apiPath, localPath, commitMsg); } catch {}
     }
     log(`push error [${apiPath}]: ` + (e.response ? e.response.status : e.message));
@@ -95,9 +115,22 @@ async function pullFile(fileName) {
 
 async function pushAppstateNow(fileName) {
   fileName = fileName || 'appstate.json';
+
+  // ── لا نُشغّل هذه الوظيفة أكثر من مرة في الساعة لنفس الملف ──────────
+  const now = Date.now();
+  if (_lastLoginPushMs[fileName] && now - _lastLoginPushMs[fileName] < LOGIN_PUSH_MIN_INTERVAL) {
+    const remaining = Math.round((LOGIN_PUSH_MIN_INTERVAL - (now - _lastLoginPushMs[fileName])) / 60000);
+    log(`pushAppstateNow skipped for ${fileName} — next allowed in ${remaining} min`);
+    return false;
+  }
+  _lastLoginPushMs[fileName] = now;
+  // أعدّل الـ throttle العام أيضاً لمنع pushAppstate من الرفع مباشرة بعدها
+  const apiPath = encodeURIComponent(fileName);
+  _lastPushMs[apiPath] = now;
+
   log(`saving fresh appstate after login: ${fileName}`);
   const localPath = path.join(process.cwd(), fileName);
-  const result = await pushToGitHub(encodeURIComponent(fileName), localPath, `appstate: auto-save after login`);
+  const result = await pushToGitHub(apiPath, localPath, `appstate: auto-save after login`);
   if (result) log('appstate saved to GitHub successfully ✓');
   else log('appstate save skipped (no TOKEN or file not found)');
   return result;
