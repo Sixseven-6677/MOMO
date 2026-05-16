@@ -1,6 +1,6 @@
 module.exports.config = {
   name: "طلبات",
-  version: "3.0.0",
+  version: "4.0.0",
   hasPermssion: 3,
   credits: "FANG",
   description: "عرض القروبات الموجودة في قائمة الانتظار والسبام",
@@ -12,81 +12,115 @@ module.exports.config = {
 module.exports.run = async function({ api, event }) {
   const { threadID, messageID } = event;
 
-  // إرسال رسالة "جاري البحث..." أولاً حتى يعرف المستخدم أن الأمر يعمل
-  let loadingMsg = null;
-  try {
-    await new Promise((res) => {
-      api.sendMessage('🔍 جاري البحث عن الطلبات المعلقة...', threadID, (err, info) => {
-        if (!err && info) loadingMsg = info.messageID;
-        res();
-      });
-    });
-  } catch(e) {}
+  // رسالة انتظار
+  let loadingMsgID = null;
+  await new Promise(res =>
+    api.sendMessage('🔍 جاري البحث عن الطلبات...', threadID, (e, info) => {
+      if (!e && info) loadingMsgID = info.messageID;
+      res();
+    })
+  );
 
-  // دالة مساعدة: getThreadList مع timeout 12 ثانية
-  function getList(tag) {
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        resolve({ list: [], error: 'timeout' });
-      }, 12000);
+  // دالة مساعدة: تجلب قائمة مؤمنة ضد أي خطأ
+  function safeGetList(tag) {
+    return new Promise(resolve => {
+      const done = setTimeout(() => resolve({ tag, list: [], err: 'timeout' }), 14000);
       try {
-        api.getThreadList(30, null, [tag], (err, list) => {
-          clearTimeout(timer);
-          if (err) {
-            resolve({ list: [], error: String(err.error || err) });
-          } else {
-            resolve({ list: Array.isArray(list) ? list : [], error: null });
-          }
+        api.getThreadList(50, null, [tag], (err, list) => {
+          clearTimeout(done);
+          resolve({ tag, list: Array.isArray(list) ? list : [], err: err || null });
         });
       } catch(e) {
-        clearTimeout(timer);
-        resolve({ list: [], error: String(e.message || e) });
+        clearTimeout(done);
+        resolve({ tag, list: [], err: e });
       }
     });
   }
 
-  const [pendingResult, spamResult] = await Promise.all([
-    getList('PENDING'),
-    getList('SPAM')
+  // جلب PENDING وSPAM وINBOX معاً بالتوازي
+  const [pendRes, spamRes, inboxRes] = await Promise.all([
+    safeGetList('PENDING'),
+    safeGetList('SPAM'),
+    safeGetList('INBOX')
   ]);
 
-  // حذف رسالة "جاري البحث"
-  if (loadingMsg) {
-    try { api.unsendMessage(loadingMsg); } catch(e) {}
+  // حذف رسالة الانتظار
+  if (loadingMsgID) try { api.unsendMessage(loadingMsgID); } catch(e) {}
+
+  // تجميع القروبات المعلقة من PENDING مباشرة + ما له folder=PENDING في INBOX
+  const seen   = new Set();
+  const addAll = (arr, folder) =>
+    arr
+      .filter(t => t.isGroup && t.threadID && (!folder || t.folder === folder))
+      .forEach(t => { if (!seen.has(t.threadID)) { seen.add(t.threadID); } });
+
+  // قائمة القروبات المعلقة (PENDING)
+  const pendingGroups = [];
+  const seenP = new Set();
+  for (const t of [...pendRes.list, ...inboxRes.list]) {
+    if (!t.isGroup || !t.threadID || seenP.has(t.threadID)) continue;
+    if (t.folder === 'PENDING' || (pendRes.err == null && pendRes.list.includes(t))) {
+      seenP.add(t.threadID);
+      pendingGroups.push(t);
+    }
+  }
+  // فلترة INBOX لـ folder=PENDING فقط إذا فشل طلب PENDING الأصلي
+  if (pendRes.err && !pendRes.list.length) {
+    for (const t of inboxRes.list) {
+      if (t.isGroup && t.threadID && !seenP.has(t.threadID) && t.folder === 'PENDING') {
+        seenP.add(t.threadID);
+        pendingGroups.push(t);
+      }
+    }
   }
 
-  const pGroups = pendingResult.list.filter(t => t.isGroup);
-  const sGroups = spamResult.list.filter(t => t.isGroup);
-
-  // إذا فشلت كلتا الطلبيتين
-  if (pendingResult.error && spamResult.error) {
-    const errMsg = pendingResult.error === 'timeout'
-      ? '⚠️ انتهت مهلة الاتصال بـ Facebook API.\n\nقد يكون البوت محظوراً أو API معطّل مؤقتاً.'
-      : `⚠️ خطأ في الاتصال:\n${pendingResult.error}`;
-    return api.sendMessage(errMsg, threadID, messageID);
+  // قائمة قروبات السبام
+  const spamGroups = [];
+  const seenS = new Set();
+  for (const t of spamRes.list) {
+    if (t.isGroup && t.threadID && !seenS.has(t.threadID)) {
+      seenS.add(t.threadID);
+      spamGroups.push(t);
+    }
+  }
+  // بحث في INBOX عن folder=SPAM إذا فشل طلب SPAM
+  if (spamRes.err && !spamRes.list.length) {
+    for (const t of inboxRes.list) {
+      if (t.isGroup && t.threadID && !seenS.has(t.threadID) && t.folder === 'SPAM') {
+        seenS.add(t.threadID);
+        spamGroups.push(t);
+      }
+    }
   }
 
-  if (pGroups.length === 0 && sGroups.length === 0) {
+  // لا يوجد شيء
+  if (pendingGroups.length === 0 && spamGroups.length === 0) {
     let msg = '✅ لا توجد قروبات معلقة أو سبام';
-    if (pendingResult.error || spamResult.error) {
-      msg += '\n\n⚠️ ملاحظة: حدث خطأ في جلب بعض البيانات، قد تكون النتائج غير مكتملة.';
+    const errors = [pendRes.err, spamRes.err, inboxRes.err].filter(Boolean);
+    if (errors.length === 3) {
+      msg = '⚠️ تعذّر الوصول إلى قوائم Messenger\n\nقد يكون الـ API محدوداً مؤقتاً، حاول لاحقاً.';
+    } else if (errors.length > 0) {
+      msg += '\n\n⚠️ بعض قوائم الانتظار لم تُحمَّل بسبب خطأ في الاتصال.';
     }
     return api.sendMessage(msg, threadID, messageID);
   }
 
-  let text = '📋 ┌── القروبات المعلقة ──┐\n\n';
+  // بناء الرسالة
+  let text = '📋 ┌── الطلبات المعلقة ──┐\n\n';
 
-  if (pGroups.length > 0) {
-    text += `📥 الانتظار (${pGroups.length}):\n`;
-    pGroups.forEach((t, i) => {
-      text += `${i + 1}. ${t.name || t.threadName || 'بدون اسم'}\n   🔑 ${t.threadID}\n\n`;
+  if (pendingGroups.length > 0) {
+    text += `📥 الانتظار (${pendingGroups.length}):\n`;
+    pendingGroups.forEach((t, i) => {
+      const name = (t.name || t.threadName || 'بدون اسم').trim();
+      text += `${i + 1}. ${name}\n   🔑 ${t.threadID}\n\n`;
     });
   }
 
-  if (sGroups.length > 0) {
-    text += `⚠️ السبام (${sGroups.length}):\n`;
-    sGroups.forEach((t, i) => {
-      text += `${i + 1}. ${t.name || t.threadName || 'بدون اسم'}\n   🔑 ${t.threadID}\n\n`;
+  if (spamGroups.length > 0) {
+    text += `⚠️ السبام (${spamGroups.length}):\n`;
+    spamGroups.forEach((t, i) => {
+      const name = (t.name || t.threadName || 'بدون اسم').trim();
+      text += `${i + 1}. ${name}\n   🔑 ${t.threadID}\n\n`;
     });
   }
 
