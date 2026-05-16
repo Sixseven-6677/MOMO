@@ -1,7 +1,7 @@
 module.exports.config = {
   name: "leaveNoti",
   eventType: ["log:unsubscribe"],
-  version: "2.0.0",
+  version: "2.1.0",
   credits: "HĐGN / updated by MOMO",
   description: "إشعار خروج عضو من المجموعة بصورة"
 };
@@ -14,18 +14,17 @@ module.exports.run = async function ({ api, event, Users }) {
   const fs     = require('fs');
   const moment = require('moment-timezone');
 
-  const threadID = event.threadID;
-  const iduser   = event.logMessageData.leftParticipantFbId;
-  const name     = global.data.userName.get(iduser) || String(iduser);
-  const kicked   = event.author != iduser;
+  const threadID  = event.threadID;
+  const iduser    = event.logMessageData.leftParticipantFbId;
+  const name      = global.data.userName.get(iduser) || String(iduser);
+  const kicked    = event.author != iduser;
   const leaveType = kicked ? 'kicked' : 'left';
-  const time     = moment().tz("Asia/Riyadh").format("DD/MM/YYYY HH:mm");
+  const time      = moment().tz("Asia/Riyadh").format("DD/MM/YYYY HH:mm");
 
-  const avatarUrl = `https://graph.facebook.com/${iduser}/picture?width=300&height=300&type=large`;
   let imgPath;
   try {
     const { makeLeaveCard } = require('../../utils/makeLeaveCard');
-    const buf = await makeLeaveCard({ name, leaveType, time, avatarUrl });
+    const buf = await makeLeaveCard({ name, leaveType, time, uid: iduser });
     imgPath = path.join(os.tmpdir(), `leave_${Date.now()}.png`);
     fs.writeFileSync(imgPath, buf);
     await new Promise((resolve, reject) => {
@@ -40,7 +39,7 @@ module.exports.run = async function ({ api, event, Users }) {
     });
   } catch (err) {
     if (imgPath) try { fs.unlinkSync(imgPath); } catch(e) {}
-    const statusText = kicked ? 'تم طرده من المجموعة' : 'غادر المجموعة';
+    const statusText = kicked ? 'تم طرده' : 'غادر المجموعة';
     api.sendMessage(`👋 ${name} ${statusText}\n🕐 ${time}`, threadID);
   }
 };
