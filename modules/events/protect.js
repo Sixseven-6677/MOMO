@@ -5,9 +5,10 @@ const nicksPath = path.join(process.cwd(), "modules/commands/data/protectedNicks
 
 module.exports.config = {
   name: "protect",
-  version: "1.0.0",
+  version: "1.0.1",
   credits: "FANG",
-  description: "حماية اسم القروب والكنيات من التغيير"
+  description: "حماية اسم القروب والكنيات من التغيير",
+  eventType: ["log:thread-name", "log:user-nickname"]
 };
 
 module.exports.onLoad = function({ api }) {
