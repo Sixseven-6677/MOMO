@@ -62,7 +62,6 @@ async function makeCard(data) {
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
-  // ── الخلفية ──
   ctx.fillStyle = '#050816';
   ctx.fillRect(0, 0, W, H);
 
@@ -74,7 +73,6 @@ async function makeCard(data) {
   g2.addColorStop(0,'rgba(255,0,255,0.22)'); g2.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=g2; ctx.fillRect(0,0,W,H);
 
-  // ── إطار الكارد ──
   rr(ctx,MX,MY,MW,MH,32); ctx.fillStyle='rgba(255,255,255,0.04)'; ctx.fill();
   const bg = ctx.createLinearGradient(MX,MY,MX+MW,MY+MH);
   bg.addColorStop(0,'rgba(77,163,255,0.65)');
@@ -88,14 +86,12 @@ async function makeCard(data) {
 
   const IX = MX+30, IW = MW-60;
 
-  // ── العنوان ──
   const botTitle = sv(data.botName||'FANG').toUpperCase() + ' DASHBOARD';
   const tg = ctx.createLinearGradient(IX,0,IX+520,0);
   tg.addColorStop(0,'#4da3ff'); tg.addColorStop(1,'#d84dff');
   ctx.font=`bold 34px ${FB}`; ctx.fillStyle=tg; ctx.textAlign='left';
   ctx.fillText(botTitle, IX, MY+76);
 
-  // ── مؤشر ONLINE ──
   ctx.save();
   ctx.shadowBlur=18; ctx.shadowColor='#48ffd5';
   ctx.beginPath(); ctx.arc(MX+MW-116,MY+62,8,0,Math.PI*2);
@@ -104,7 +100,6 @@ async function makeCard(data) {
   ctx.font=`bold 20px ${FB}`; ctx.fillStyle='#48ffd5';
   ctx.fillText('ONLINE', MX+MW-100, MY+68);
 
-  // ── الفاصل ──
   const lineG = ctx.createLinearGradient(IX,0,IX+IW,0);
   lineG.addColorStop(0,'rgba(77,163,255,0.28)');
   lineG.addColorStop(0.5,'rgba(184,77,255,0.22)');
@@ -112,7 +107,6 @@ async function makeCard(data) {
   ctx.beginPath(); ctx.moveTo(IX,MY+90); ctx.lineTo(IX+IW,MY+90);
   ctx.strokeStyle=lineG; ctx.lineWidth=1; ctx.stroke();
 
-  // ── صناديق الإحصائيات (5) ──
   const sY = MY+100, sH = 64;
   const sCfg = [
     {lbl:'UPTIME', val:data.uptime,  vc:'rgba(72,255,213,.90)', fa:'rgba(0,198,184,.07)', fb:'rgba(0,198,184,.20)'},
@@ -131,7 +125,6 @@ async function makeCard(data) {
     ctx.fillText(sv(sc.val), x+12, sY+51);
   });
 
-  // ── الكروت الأربعة ──
   let cy = sY + sH + 13;
   const cH=85, ISZ=62, GAP=9;
 
@@ -183,7 +176,6 @@ async function makeCard(data) {
       ctx.font=`normal 12px ${FR}`; ctx.fillStyle='rgba(255,255,255,0.40)';
       ctx.fillText(c.bar.sub, lx+bW+10, cy+65);
     } else {
-      // CPU card — value left, sub2 right
       ctx.font=`bold ${c.vs}px ${FR}`; ctx.fillStyle=c.vc;
       ctx.fillText(c.val, lx, cy+50);
       if (c.sub2) {
@@ -196,26 +188,22 @@ async function makeCard(data) {
     cy += cH + GAP;
   }
 
-  // ── الأوقات العربية (5 مدن) ──
   const tY = cy, tH = 64;
   const tW = (IW - 4*9) / 5;
   (data.times||[]).forEach((t, i) => {
     const tx = IX + i*(tW+9);
     glass(ctx, tx, tY, tW, tH, 16, 'rgba(77,163,255,.06)', 'rgba(77,163,255,.22)');
-    // اسم الدولة (flag)
     ctx.font=`bold 11px ${FB}`; ctx.fillStyle='rgba(255,255,255,0.28)';
     ctx.textAlign='center';
     ctx.fillText(t.flag, tx+tW/2, tY+18);
-    // اسم المدينة
     ctx.font=`bold 13px ${FB}`; ctx.fillStyle='rgba(180,220,255,.80)';
     ctx.fillText(t.city, tx+tW/2, tY+35);
-    // الوقت
     ctx.font=`bold 15px ${FR}`; ctx.fillStyle='#48ffd5';
     ctx.fillText(t.time, tx+tW/2, tY+55);
     ctx.textAlign='left';
   });
 
-  // ── شريط المعلومات (IP، حزم، طالب، مجموعة) ──
+  // ── شريط المعلومات (IP + Packages فقط — بدون أسماء) ──
   const iY = tY + tH + 9;
   glass(ctx, IX, iY, IW, 56, 18, 'rgba(255,255,255,.04)', 'rgba(255,255,255,.11)');
 
@@ -226,10 +214,9 @@ async function makeCard(data) {
   ctx.fillText(sv(data.serverIP), col1, iY+38);
 
   ctx.font=`bold 12px ${FB}`; ctx.fillStyle='rgba(255,255,255,0.28)';
-  const pkgLabel = 'PACKAGES: ' + sv(data.depCount) + ' deps · ' + sv(data.devDepCount) + ' dev';
-  ctx.fillText(pkgLabel, col2, iY+18);
+  ctx.fillText('PACKAGES', col2, iY+18);
   ctx.font=`normal 14px ${FR}`; ctx.fillStyle='rgba(210,160,255,.88)';
-  ctx.fillText('👤 ' + sv(data.requesterName) + '  ·  ' + sv(data.threadName), col2, iY+38);
+  ctx.fillText(sv(data.depCount) + ' deps  ·  ' + sv(data.devDepCount) + ' dev', col2, iY+38);
 
   // ── الفوتر ──
   ctx.font=`bold 13px ${FB}`; ctx.fillStyle='rgba(255,255,255,0.22)';
