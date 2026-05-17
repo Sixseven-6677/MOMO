@@ -18,8 +18,8 @@ function saveData(data) {
 }
 
 module.exports.config = {
-  name: "تحديث رسالة",
-  version: "1.0.0",
+  name: "تحديث",
+  version: "1.1.0",
   hasPermssion: 3,
   credits: "FANG",
   description: "تحديث رسالة التوسيع في هذا القروب",
@@ -31,11 +31,13 @@ module.exports.config = {
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID } = event;
 
-  const message = args.join(' ').trim();
+  // المستخدم يكتب: تحديث رسالة النص هنا
+  // args[0] = "رسالة" ، args[1..] = النص
+  const message = (args[0] === 'رسالة' ? args.slice(1) : args).join(' ').trim();
 
   if (!message) {
     return api.sendMessage(
-      '❌ اكتب نص الرسالة بعد الأمر\n\nمثال: تحديث رسالة مرحباً بالجميع!',
+      '❌ اكتب نص الرسالة\n\nمثال: تحديث رسالة مرحباً بالجميع!',
       threadID, messageID
     );
   }
