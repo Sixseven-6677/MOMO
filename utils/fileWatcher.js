@@ -1,32 +1,25 @@
 /**
  * utils/fileWatcher.js
- * مراقب ذكي للملفات — يُطلق callback فقط عند تغيير ملفات الجلسة والإعدادات
- * لا يُعيد التشغيل بسبب errors أو reconnects أو إغلاق websocket
+ * يراقب config.json فقط للـ restart التلقائي
+ * appstate.json لا تُراقَب هنا — تتحكم فيها /update-cookies مباشرة
  */
 
 const fs     = require('fs');
 const path   = require('path');
 const logger = require('./log');
 
-const TAG          = '[ FILE WATCHER ]';
-const DEBOUNCE_MS  = 4000;   // 4 ثوان — تجنّب إعادة التشغيل من حفظ متعدد
-const MIN_RESTART  = 30_000; // 30 ثانية — حماية من restart spam
+const TAG         = '[ FILE WATCHER ]';
+const DEBOUNCE_MS = 4000;   // 4 ثوان debounce
+const MIN_RESTART = 60_000; // دقيقة واحدة حد أدنى بين كل restart
 
-// الملفات التي تستحق إعادة تشغيل عند تغييرها
-const SESSION_FILES = [
-  'appstate.json', 'appstate2.json', 'appstate3.json',
-  'appstate4.json', 'appstate5.json',
+// الملفات التي تستحق restart عند تغييرها — appstate مستثنى عمداً
+const WATCH_FILES = [
   'config.json',
 ];
 
-// تغيير هذه الملفات يُعيد تحميل الجلسة فقط (ليس restart كامل)
-const SESSION_RELOAD_FILES = [
-  'appstate.json', 'appstate2.json', 'appstate3.json',
-];
-
-const _timers       = {};   // debounce timers per file
-const _hashes       = {};   // last known size+mtime per file
-const _lastRestart  = {};   // anti-spam: last restart time per file
+const _timers      = {};
+const _hashes      = {};
+const _lastRestart = {};
 
 function _getHash(filePath) {
   try {
@@ -36,31 +29,26 @@ function _getHash(filePath) {
 }
 
 /**
- * يبدأ مراقبة الملفات
- * @param {string}   rootDir        مجلد المشروع
- * @param {Function} onSessionFile  callback(fileName) عند تغيير appstate
- * @param {Function} onConfigFile   callback(fileName) عند تغيير config
+ * يبدأ مراقبة ملفات الإعدادات فقط
+ * @param {string}   rootDir       مجلد المشروع
+ * @param {Function} onSessionFile callback لـ appstate (غير مستخدم حالياً)
+ * @param {Function} onConfigFile  callback عند تغيير config.json
  */
 function startWatcher(rootDir, onSessionFile, onConfigFile) {
-  for (const fileName of SESSION_FILES) {
+  for (const fileName of WATCH_FILES) {
     const filePath = path.join(rootDir, fileName);
 
-    // حفظ الحالة الأولية
     _hashes[fileName] = _getHash(filePath);
 
-    // ننشئ الملف إذا لم يكن موجوداً حتى لا يُطلق fs.watch خطأ
     if (!fs.existsSync(filePath)) continue;
 
     try {
-      fs.watch(filePath, { persistent: false }, (eventType) => {
-        if (eventType !== 'change') return;
-
-        // debounce — تجاهل الاستدعاءات المتكررة خلال 4 ثوان
+      fs.watch(filePath, { persistent: false }, () => {
         if (_timers[fileName]) clearTimeout(_timers[fileName]);
+
         _timers[fileName] = setTimeout(() => {
           delete _timers[fileName];
 
-          // تحقق أن الملف تغيّر فعلاً (حجم أو تاريخ)
           const newHash = _getHash(filePath);
           if (!newHash || newHash === _hashes[fileName]) return;
           _hashes[fileName] = newHash;
@@ -74,12 +62,7 @@ function startWatcher(rootDir, onSessionFile, onConfigFile) {
           _lastRestart[fileName] = now;
 
           logger(`restarting due to file changes: ${fileName}`, TAG);
-
-          if (SESSION_RELOAD_FILES.includes(fileName)) {
-            onSessionFile(fileName, filePath);
-          } else {
-            onConfigFile(fileName, filePath);
-          }
+          onConfigFile(fileName, filePath);
         }, DEBOUNCE_MS);
       });
 
@@ -90,7 +73,7 @@ function startWatcher(rootDir, onSessionFile, onConfigFile) {
   }
 }
 
-/** تحديث hash ملف بعد أن يكتب البوت نفسه فيه (لتجنب trigger غير مقصود) */
+/** تحديث hash ملف بعد كتابة البوت فيه — لمنع trigger غير مقصود */
 function refreshHash(fileName) {
   const filePath = path.join(process.cwd(), fileName);
   _hashes[fileName] = _getHash(filePath);
