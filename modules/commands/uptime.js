@@ -1,9 +1,9 @@
 module.exports.config = {
   name: "uptime",
-  version: "9.0.0",
+  version: "10.0.0",
   hasPermssion: 0,
   credits: "FANG",
-  description: "صورة داشبورد معلومات البوت",
+  description: "داشبورد معلومات البوت",
   commandCategory: "معلومات",
   usages: "uptime",
   cooldowns: 10
@@ -17,18 +17,14 @@ module.exports.run = async function({ api, event, Users, Threads }) {
   const fs     = require('fs');
   const fsp    = require('fs').promises;
 
-  const pingStart = Date.now();
+  // ── uptime الحقيقي من uptimeManager ──────────────────────────────────────
+  // لا يتأثر بـ reconnect أو relogin — فقط restart حقيقي للعملية يُصفّره
+  const { getUptimeMs, formatUptime } = require('../../utils/uptimeManager');
+  const uptimeMs  = getUptimeMs();
+  const uptimeStr = formatUptime(uptimeMs);
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // ── uptime من process.uptime ──
-  const rawUptime = process.uptime();
-  const h  = Math.floor(rawUptime / 3600);
-  const m  = Math.floor((rawUptime % 3600) / 60);
-  const sc = Math.floor(rawUptime % 60);
-  const uptimeStr = [
-    h  > 0 ? h  + 'h' : '',
-    m  > 0 ? m  + 'm' : '',
-    sc + 's'
-  ].filter(Boolean).join(' ');
+  const pingStart = Date.now();
 
   // ── معلومات CPU ──
   const cpus     = os.cpus();
@@ -152,7 +148,8 @@ module.exports.run = async function({ api, event, Users, Threads }) {
     const arabicTimes = times.map(t => t.flag + ' ' + t.city + ': ' + t.time).join('\n');
     const text = [
       '╔══ ' + botName + ' DASHBOARD ══╗',
-      '⏱ ' + uptimeStr + '  ⚡ ' + ping + 'ms (' + pingStatus + ')',
+      '⏱ Uptime: ' + uptimeStr,
+      '⚡ Ping: ' + ping + 'ms (' + pingStatus + ')',
       '💬 أوامر: ' + cmds + '  📦 مجموعات: ' + groups + '  👥 مستخدمين: ' + users,
       '💾 Heap: ' + heapUsed + '/' + heapTotal + ' MB',
       '🖥 RAM: ' + usedMemGB + '/' + totalMemGB + ' GB (متاح ' + freeMemGB + ' GB)',
