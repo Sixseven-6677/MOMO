@@ -1,6 +1,6 @@
 module.exports.config = {
   name: "uptime",
-  version: "8.0.0",
+  version: "9.0.0",
   hasPermssion: 0,
   credits: "FANG",
   description: "صورة داشبورد معلومات البوت",
@@ -9,42 +9,46 @@ module.exports.config = {
   cooldowns: 10
 };
 
-module.exports.run = async function({ api, event }) {
-  const { threadID, messageID } = event;
-  const os      = require('os');
-  const moment  = require('moment-timezone');
-  const path    = require('path');
-  const fs      = require('fs');
+module.exports.run = async function({ api, event, Users, Threads }) {
+  const { threadID, messageID, senderID } = event;
+  const os     = require('os');
+  const moment = require('moment-timezone');
+  const path   = require('path');
+  const fs     = require('fs');
+  const fsp    = require('fs').promises;
+
   const pingStart = Date.now();
 
-  // ── uptime حقيقي من أول تشغيل البوت (لا يتأثر بإعادة التشغيل) ──────
-  const _startMs = parseInt(process.env.BOT_START_TIME || '0') || (Date.now() - process.uptime() * 1000);
-  const tot = Math.floor((Date.now() - _startMs) / 1000);
-  const d   = Math.floor(tot / 86400);
-  const h   = Math.floor((tot % 86400) / 3600);
-  const m   = Math.floor((tot % 3600) / 60);
-  const sc  = tot % 60;
+  // ── uptime من process.uptime ──
+  const rawUptime = process.uptime();
+  const h  = Math.floor(rawUptime / 3600);
+  const m  = Math.floor((rawUptime % 3600) / 60);
+  const sc = Math.floor(rawUptime % 60);
   const uptimeStr = [
-    d > 0 ? `${d}d` : '',
-    h > 0 ? `${h}h` : '',
-    m > 0 ? `${m}m` : '',
-    `${sc}s`
+    h  > 0 ? h  + 'h' : '',
+    m  > 0 ? m  + 'm' : '',
+    sc + 's'
   ].filter(Boolean).join(' ');
 
+  // ── معلومات CPU ──
+  const cpus     = os.cpus();
+  const cpu      = (cpus[0]?.model || 'Unknown').replace(/\(.*?\)/g, '').trim().slice(0, 30);
+  const platform = os.platform();
+  const arch     = os.arch();
+  const cores    = cpus.length;
+  const speed    = cpus[0]?.speed || 0;
+
+  // ── الذاكرة ──
   const mem       = process.memoryUsage();
   const heapUsed  = (mem.heapUsed  / 1024 / 1024).toFixed(1);
   const heapTotal = (mem.heapTotal / 1024 / 1024).toFixed(1);
-  const rss       = (mem.rss       / 1024 / 1024).toFixed(1);
   const heapPct   = mem.heapUsed / mem.heapTotal;
-  const rssPct    = Math.min(mem.rss / (os.totalmem() || 1), 1);
+  const freeMemGB  = (os.freemem()  / 1024 / 1024 / 1024).toFixed(2);
+  const totalMemGB = (os.totalmem() / 1024 / 1024 / 1024).toFixed(2);
+  const usedMemGB  = ((os.totalmem() - os.freemem()) / 1024 / 1024 / 1024).toFixed(2);
+  const ramPct     = (os.totalmem() - os.freemem()) / (os.totalmem() || 1);
 
-  const cpus     = os.cpus();
-  const cpu      = (cpus[0]?.model || 'Unknown').replace(/\(.*?\)/g, '').trim().slice(0, 30);
-  const osSec    = Math.floor(os.uptime());
-  const osUptime = `${Math.floor(osSec/86400)}d ${Math.floor((osSec%86400)/3600)}h`;
-
-  const ping = Date.now() - pingStart;
-
+  // ── القرص ──
   let diskFree = 'N/A', diskFreePct = 0;
   try {
     const { execSync } = require('child_process');
@@ -58,40 +62,78 @@ module.exports.run = async function({ api, event }) {
     }
   } catch(e) {}
 
-  const currentTime = moment().format('hh:mm:ss A');
+  // ── IP السيرفر ──
+  let serverIP = 'N/A';
+  try {
+    const nwif  = os.networkInterfaces();
+    const iface = nwif['eth0'] || Object.values(nwif).find(i => i);
+    serverIP    = (iface || []).find(a => a.family === 'IPv4' && !a.internal)?.address || 'N/A';
+  } catch(e) {}
 
+  // ── عدد الحزم من package.json ──
+  let depCount = 0, devDepCount = 0;
+  try {
+    const pkg   = JSON.parse(await fsp.readFile('package.json', 'utf8'));
+    depCount    = Object.keys(pkg.dependencies    || {}).length;
+    devDepCount = Object.keys(pkg.devDependencies || {}).length;
+  } catch(e) {}
+
+  // ── البيانات العامة ──
+  const cmds    = global.client?.commands?.size    || 0;
+  const groups  = global.data?.allThreadID?.length || 0;
+  const users   = global.data?.allUserID?.length   || 0;
+  const botName = global.config?.BOTNAME || 'FANG';
+  let prefix = global.config?.PREFIX || '!';
+  try {
+    const td = (await Threads.getData(String(threadID))).data;
+    if (td?.PREFIX != null) prefix = td.PREFIX;
+  } catch(e) {}
+
+  // ── اسم المرسل واسم المجموعة ──
+  let requesterName = 'Unknown', threadName = 'محادثة خاصة';
+  try { requesterName = await Users.getNameUser(senderID); } catch(e) {}
+  try {
+    const info = await api.getThreadInfo(threadID);
+    threadName = info.threadName || 'محادثة خاصة';
+  } catch(e) {}
+
+  const ping       = Date.now() - pingStart;
+  const pingStatus = ping < 100 ? 'ممتاز' : ping < 300 ? 'جيد' : 'بطيء';
+
+  // ── الأوقات العربية ──
   const zones = [
-    { flag: 'SA', city: 'Riyadh',     tz: 'Asia/Riyadh'       },
-    { flag: 'EG', city: 'Cairo',      tz: 'Africa/Cairo'      },
-    { flag: 'AE', city: 'Dubai',      tz: 'Asia/Dubai'        },
-    { flag: 'DZ', city: 'Algiers',    tz: 'Africa/Algiers'    },
-    { flag: 'MA', city: 'Casablanca', tz: 'Africa/Casablanca' },
+    { flag: 'SA', city: 'الرياض',  tz: 'Asia/Riyadh'      },
+    { flag: 'EG', city: 'القاهرة', tz: 'Africa/Cairo'      },
+    { flag: 'AE', city: 'دبي',     tz: 'Asia/Dubai'        },
+    { flag: 'DZ', city: 'الجزائر', tz: 'Africa/Algiers'    },
+    { flag: 'MA', city: 'الرباط',  tz: 'Africa/Casablanca' },
   ];
   const times = zones.map(z => ({
     flag: z.flag, city: z.city,
     time: moment().tz(z.tz).format('hh:mm A')
   }));
 
-  const cmds    = global.client?.commands?.size    || 0;
-  const groups  = global.data?.allThreadID?.length || 0;
-  const events  = (global.client?.recentEvents    || []).slice(0, 7);
-  const botName = global.config?.BOTNAME || 'Fang';
-
   let imgPath;
   try {
     const { makeCard } = require('../../utils/makeCard');
     const buf = await makeCard({
-      botName, version: global.config?.version || '1.2.14',
-      uptime: uptimeStr, ping: ping + 'ms',
-      cmds, groups,
-      heapUsed, heapTotal, rss, heapPct, rssPct,
-      cpu, osUptime,
+      botName,
+      version:       global.config?.version || '1.0.0',
+      uptime:        uptimeStr,
+      ping:          ping + 'ms',
+      pingStatus,
+      cmds, groups, users, prefix,
+      heapUsed, heapTotal, heapPct,
+      freeMemGB, totalMemGB, usedMemGB, ramPct,
+      cpu, platform, arch, cores, speed,
       diskFree, diskFreePct,
-      currentTime,
-      times, events
+      depCount, devDepCount,
+      serverIP,
+      requesterName, threadName,
+      times
     });
 
-    imgPath = path.join(os.tmpdir(), `uptime_${Date.now()}.png`);
+    imgPath = path.join(os.tmpdir(), 'uptime_' + Date.now() + '.png');
     fs.writeFileSync(imgPath, buf);
 
     await new Promise((resolve, reject) => {
@@ -107,13 +149,21 @@ module.exports.run = async function({ api, event }) {
     });
   } catch (err) {
     if (imgPath) try { fs.unlinkSync(imgPath); } catch(e) {}
+    const arabicTimes = times.map(t => t.flag + ' ' + t.city + ': ' + t.time).join('\n');
     const text = [
-      `╔══ ${botName} ══╗`,
-      `⏱ ${uptimeStr}`,
-      `⚡ ${ping}ms`,
-      `💾 Heap: ${heapUsed}/${heapTotal} MB`,
-      `📊 Cmds: ${cmds}  Groups: ${groups}`,
-      `╚${'═'.repeat(10)}╝`,
+      '╔══ ' + botName + ' DASHBOARD ══╗',
+      '⏱ ' + uptimeStr + '  ⚡ ' + ping + 'ms (' + pingStatus + ')',
+      '💬 أوامر: ' + cmds + '  📦 مجموعات: ' + groups + '  👥 مستخدمين: ' + users,
+      '💾 Heap: ' + heapUsed + '/' + heapTotal + ' MB',
+      '🖥 RAM: ' + usedMemGB + '/' + totalMemGB + ' GB (متاح ' + freeMemGB + ' GB)',
+      '💿 Disk: ' + diskFree,
+      '🌐 IP: ' + serverIP,
+      '📦 Packages: ' + depCount + ' | Dev: ' + devDepCount,
+      '',
+      '🕐 أوقات عربية:\n' + arabicTimes,
+      '',
+      '👤 ' + requesterName + '  —  ' + threadName,
+      '╚' + '═'.repeat(22) + '╝',
     ].join('\n');
     return api.sendMessage(text, threadID, messageID);
   }
