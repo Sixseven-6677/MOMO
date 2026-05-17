@@ -1,204 +1,376 @@
-const fs   = require("fs");
-const path = require("path");
+const fs   = require('fs');
+const path = require('path');
 
-const dataPath        = path.join(process.cwd(), "modules/commands/data/tawsi3.json");
-const DEFAULT_TIMEOUT = 30;
+const DATA_FILE    = path.join(process.cwd(), 'modules/commands/data/tawsi3.json');
+const MIN_INTERVAL = 1;    // دقيقة على الأقل
+const MAX_INTERVAL = 720;  // 12 ساعة كحد أقصى
 
-// ── حفظ وقراءة ────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+//  قراءة وحفظ البيانات
+// ════════════════════════════════════════════════════════════════
+
 function loadData() {
-  try { return JSON.parse(fs.readFileSync(dataPath, "utf8")); }
-  catch(e) { return {}; }
-}
-function saveData(obj) {
   try {
-    fs.mkdirSync(path.dirname(dataPath), { recursive: true });
-    fs.writeFileSync(dataPath, JSON.stringify(obj, null, 2));
-  } catch(e) {}
+    if (!fs.existsSync(DATA_FILE)) return {};
+    const raw = fs.readFileSync(DATA_FILE, 'utf8');
+    return JSON.parse(raw) || {};
+  } catch(e) {
+    console.error('[توسيع] ❌ خطأ في قراءة البيانات:', e.message);
+    return {};
+  }
 }
-function getConfig(threadID) {
-  return loadData()[threadID] || null;
+
+function saveData(data) {
+  try {
+    fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch(e) {
+    console.error('[توسيع] ❌ خطأ في حفظ البيانات:', e.message);
+  }
 }
-function setConfig(threadID, cfg) {
+
+function getEntry(threadID) {
+  return loadData()[String(threadID)] || null;
+}
+
+function setEntry(threadID, entry) {
   const data = loadData();
-  data[threadID] = cfg;
+  data[String(threadID)] = entry;
   saveData(data);
 }
 
-// ── Runtime (طابور في الذاكرة فقط) ───────────────────────────────────────────
-function ensureRuntime(threadID) {
-  if (!global.tawsi3Runtime)             global.tawsi3Runtime = {};
-  if (!global.tawsi3Runtime[threadID])   global.tawsi3Runtime[threadID] = { queue: [], processing: false, timer: null };
-  return global.tawsi3Runtime[threadID];
+function clearEntry(threadID) {
+  const data = loadData();
+  if (data[String(threadID)]) {
+    data[String(threadID)].active = false;
+    saveData(data);
+  }
 }
 
-// ── المعالج: ينتظر أولاً ثم يرسل ─────────────────────────────────────────────
-function processQueue(api, threadID) {
-  const rt = ensureRuntime(threadID);
-  if (rt.processing) return;            // معالج آخر شغّال
-  if (rt.queue.length === 0) return;    // لا شيء في الطابور
+// ════════════════════════════════════════════════════════════════
+//  حساب وقت الانتظار
+// ════════════════════════════════════════════════════════════════
 
-  const cfg = getConfig(threadID);
-  if (!cfg?.active) return;
+function getDelayMs(entry) {
+  if (entry.mode === 'random') {
+    const minMs = entry.min * 60 * 1000;
+    const maxMs = entry.max * 60 * 1000;
+    return Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+  }
+  return entry.interval * 60 * 1000;
+}
 
-  rt.processing = true;
-  const delay = (cfg.timeout || DEFAULT_TIMEOUT) * 1000;
+function formatMode(entry) {
+  if (entry.mode === 'random') {
+    return `عشوائي بين ${entry.min}–${entry.max} دقيقة`;
+  }
+  return `ثابت كل ${entry.interval} دقيقة`;
+}
 
-  // انتظر المدة المحددة أولاً — ثم أرسل
-  rt.timer = setTimeout(async () => {
-    rt.timer = null;
+// ════════════════════════════════════════════════════════════════
+//  نظام المؤقتات — recursive setTimeout
+// ════════════════════════════════════════════════════════════════
 
-    const c = getConfig(threadID);
-    if (!c?.active) { rt.processing = false; return; }
+if (!global._tawsi3Timers) global._tawsi3Timers = {};
 
-    // أرسل رسالة واحدة لكل عنصر منتظر في الطابور
-    const count = rt.queue.length;
-    rt.queue = [];  // فرّغ الطابور قبل الإرسال
+function stopTimer(threadID) {
+  const tid = String(threadID);
+  if (global._tawsi3Timers[tid]) {
+    clearTimeout(global._tawsi3Timers[tid]);
+    delete global._tawsi3Timers[tid];
+    console.log(`[توسيع] ⏹  إيقاف المؤقت للقروب: ${tid}`);
+  }
+}
 
-    for (let i = 0; i < count; i++) {
-      try {
-        await new Promise((resolve, reject) =>
-          api.sendMessage(c.msg || "", threadID, err => err ? reject(err) : resolve())
-        );
-      } catch(e) {}
-      // توقف قصير بين الرسائل المتعددة لتفادي الحظر
-      if (i < count - 1) await new Promise(r => setTimeout(r, 800));
+function scheduleNext(api, threadID) {
+  const tid = String(threadID);
+
+  // أوقف أي مؤقت سابق أولاً لتفادي التكرار
+  stopTimer(tid);
+
+  const entry = getEntry(tid);
+  if (!entry || !entry.active) {
+    console.log(`[توسيع] ℹ️  القروب ${tid} غير نشط — لن يُجدول`);
+    return;
+  }
+
+  const delay    = getDelayMs(entry);
+  const delayMin = (delay / 60000).toFixed(2);
+
+  console.log(`[توسيع] ⏰ القروب ${tid} → إرسال بعد ${delayMin} دقيقة`);
+
+  global._tawsi3Timers[tid] = setTimeout(async () => {
+    delete global._tawsi3Timers[tid];
+
+    // ── محاولة الإرسال ───────────────────────────────────────────
+    try {
+      const current = getEntry(tid);
+      if (!current || !current.active) {
+        console.log(`[توسيع] ⚠️  القروب ${tid} أُوقف قبل الإرسال — إلغاء`);
+        return;
+      }
+
+      await new Promise((resolve, reject) => {
+        api.sendMessage(current.message, tid, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      console.log(`[توسيع] ✅ تم الإرسال بنجاح في القروب ${tid}`);
+
+    } catch(err) {
+      console.error(
+        `[توسيع] ❌ فشل الإرسال في القروب ${tid}:`,
+        err?.error || err?.message || err
+      );
+      // لا نوقف النظام — نكمل للجدولة التالية
     }
 
-    rt.processing = false;
+    // ── جدوِل الإرسال التالي دائماً (حتى لو حدث خطأ) ─────────────
+    try {
+      const next = getEntry(tid);
+      if (next?.active) {
+        scheduleNext(api, tid);
+      } else {
+        console.log(`[توسيع] 🔕 القروب ${tid} انتهى — لن يُعاد الجدولة`);
+      }
+    } catch(e) {
+      console.error(`[توسيع] ❌ خطأ في إعادة الجدولة للقروب ${tid}:`, e.message);
+    }
 
-    // لو وصلت رسائل جديدة أثناء الإرسال → ابدأ دورة جديدة
-    const c2 = getConfig(threadID);
-    if (c2?.active && rt.queue.length > 0) processQueue(api, threadID);
   }, delay);
 }
 
-// Watchdog
-let _watchdogStarted = false;
-function startWatchdog(api) {
-  if (_watchdogStarted) return;
-  _watchdogStarted = true;
-  setInterval(() => {
-    try {
-      const data = loadData();
-      for (const tid of Object.keys(data)) {
-        if (!data[tid]?.active) continue;
-        const rt = global.tawsi3Runtime?.[tid];
-        if (rt?.queue.length > 0 && !rt.processing) processQueue(api, tid);
+// ════════════════════════════════════════════════════════════════
+//  استعادة المؤقتات عند إعادة تشغيل البوت
+// ════════════════════════════════════════════════════════════════
+
+function restoreAll(api) {
+  try {
+    const data  = loadData();
+    const tids  = Object.keys(data).filter(tid => data[tid]?.active);
+    if (tids.length === 0) return;
+
+    // أخّر الاستعادة قليلاً حتى يستقر الاتصال
+    setTimeout(() => {
+      let restored = 0;
+      for (const tid of tids) {
+        if (!global._tawsi3Timers[tid]) {
+          scheduleNext(api, tid);
+          restored++;
+        }
       }
-    } catch(e) {}
-  }, 2 * 60 * 1000);
+      if (restored > 0) {
+        console.log(`[توسيع] 🔄 استُعيد ${restored} مؤقت بعد إعادة التشغيل`);
+      }
+    }, 5000);
+  } catch(e) {
+    console.error('[توسيع] ❌ خطأ في استعادة المؤقتات:', e.message);
+  }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+//  التصدير
+// ════════════════════════════════════════════════════════════════
 
 module.exports.config = {
   name: "توسيع",
-  version: "7.0.0",
+  version: "8.0.0",
   hasPermssion: 3,
   credits: "FANG",
-  description: "يرد على رسائل القروب بعد انتظار الوقت المحدد",
+  description: "إرسال رسائل تلقائية بشكل مستمر بوقت ثابت أو عشوائي",
   commandCategory: "أدوات",
-  usages: "توسيع | توسيع رسالة [نص] | توسيع وقت [ثوانٍ] | توسيع كسر",
+  usages: "توسيع وقت <دقائق> <رسالة> | توسيع r <min-max> <رسالة> | توسيع كسر | توسيع حالة",
   cooldowns: 3
 };
 
+// ── تشغيل عند تحميل البوت ────────────────────────────────────────
 module.exports.onLoad = function({ api } = {}) {
-  if (!global.tawsi3Runtime) global.tawsi3Runtime = {};
-  const data = loadData();
-  for (const tid in data) {
-    if (!global.tawsi3Runtime[tid])
-      global.tawsi3Runtime[tid] = { queue: [], processing: false, timer: null };
-  }
-  if (api) startWatchdog(api);
+  if (!global._tawsi3Timers) global._tawsi3Timers = {};
+  if (api) restoreAll(api);
 };
 
+// ── الأمر الرئيسي ────────────────────────────────────────────────
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID } = event;
-  ensureRuntime(threadID);
-  startWatchdog(api);
+  const tid = String(threadID);
+  const sub = (args[0] || '').trim();
 
-  const sub = (args[0] || "").trim();
+  // ══════════════════════════════════════════════
+  //  حالة — عرض كل القروبات النشطة
+  // ══════════════════════════════════════════════
+  if (sub === 'حالة') {
+    const data   = loadData();
+    const active = Object.entries(data).filter(([, e]) => e?.active);
 
-  // ── إيقاف ─────────────────────────────────────────────────────────────────
-  if (sub === "كسر") {
-    const cfg = getConfig(threadID);
-    if (!cfg?.active)
-      return api.sendMessage("⚠️ التوسيع غير مفعّل في هذا القروب", threadID, messageID);
-
-    setConfig(threadID, { ...cfg, active: false });
-
-    const rt = global.tawsi3Runtime[threadID];
-    if (rt) {
-      rt.queue = []; rt.processing = false;
-      if (rt.timer) { clearTimeout(rt.timer); rt.timer = null; }
+    if (active.length === 0) {
+      return api.sendMessage('📭 لا توجد قروبات مفعّلة حالياً', threadID, messageID);
     }
-    return api.sendMessage("✅ تم إيقاف التوسيع", threadID, messageID);
-  }
 
-  // ── تغيير الرسالة ─────────────────────────────────────────────────────────
-  if (sub === "رسالة") {
-    const msg = args.slice(1).join(" ").trim();
-    if (!msg)
-      return api.sendMessage("❌ اكتب الرسالة بعد الأمر\nمثال: توسيع رسالة مرحباً!", threadID, messageID);
-    const cfg = getConfig(threadID) || { active: false, msg: "", timeout: DEFAULT_TIMEOUT };
-    setConfig(threadID, { ...cfg, msg });
-    return api.sendMessage(`✅ تم تحديث الرسالة:\n\n"${msg}"`, threadID, messageID);
-  }
+    const lines = active.map(([id, e], i) => {
+      const inMem = global._tawsi3Timers?.[id] ? '🟢' : '🟡';
+      return (
+        `${i + 1}. ${inMem} القروب: ${id}\n` +
+        `   ⏱ ${formatMode(e)}\n` +
+        `   💬 "${e.message}"`
+      );
+    });
 
-  // ── تغيير الوقت ───────────────────────────────────────────────────────────
-  if (sub === "وقت") {
-    const secs = parseInt(args[1]);
-    if (isNaN(secs) || secs < 5 || secs > 3600)
-      return api.sendMessage("❌ اكتب وقتاً بين 5 و3600 ثانية\nمثال: توسيع وقت 60", threadID, messageID);
-    const cfg = getConfig(threadID) || { active: false, msg: "", timeout: DEFAULT_TIMEOUT };
-    setConfig(threadID, { ...cfg, timeout: secs });
-    return api.sendMessage(`✅ تم تحديث الوقت إلى ${secs} ثانية`, threadID, messageID);
-  }
-
-  // ── مفعّل بالفعل ──────────────────────────────────────────────────────────
-  const existingCfg = getConfig(threadID);
-  if (existingCfg?.active) {
     return api.sendMessage(
-      `⚠️ التوسيع مفعّل بالفعل\n\n` +
-      `📢 الرسالة: "${existingCfg.msg || ""}"\n` +
-      `⏱️ الانتظار قبل الرد: ${existingCfg.timeout || DEFAULT_TIMEOUT} ثانية`,
+      `📊 القروبات النشطة (${active.length}):\n\n` + lines.join('\n\n'),
       threadID, messageID
     );
   }
 
-  // ── تفعيل ─────────────────────────────────────────────────────────────────
-  const base   = existingCfg || { msg: "", timeout: DEFAULT_TIMEOUT };
-  const newCfg = { ...base, active: true };
-  setConfig(threadID, newCfg);
+  // ══════════════════════════════════════════════
+  //  كسر — إيقاف الإرسال
+  // ══════════════════════════════════════════════
+  if (sub === 'كسر') {
+    const entry = getEntry(tid);
+    if (!entry || !entry.active) {
+      return api.sendMessage('⚠️ التوسيع غير مفعّل في هذا القروب', threadID, messageID);
+    }
 
-  const rt = global.tawsi3Runtime[threadID];
-  rt.processing = false;
-  if (rt.timer) { clearTimeout(rt.timer); rt.timer = null; }
+    stopTimer(tid);
+    clearEntry(tid);
+
+    return api.sendMessage(
+      '✅ تم إيقاف التوسيع في هذا القروب بنجاح',
+      threadID, messageID
+    );
+  }
+
+  // ══════════════════════════════════════════════
+  //  وقت — وقت ثابت
+  // ══════════════════════════════════════════════
+  if (sub === 'وقت') {
+    const minutes = parseFloat(args[1]);
+    const message = args.slice(2).join(' ').trim();
+
+    if (isNaN(minutes) || minutes < MIN_INTERVAL || minutes > MAX_INTERVAL) {
+      return api.sendMessage(
+        `❌ الوقت يجب أن يكون بين ${MIN_INTERVAL} و${MAX_INTERVAL} دقيقة\n\n` +
+        `مثال: توسيع وقت 30 مرحباً بالجميع!`,
+        threadID, messageID
+      );
+    }
+    if (!message) {
+      return api.sendMessage(
+        '❌ يجب كتابة الرسالة بعد الوقت\n\nمثال: توسيع وقت 30 مرحباً!',
+        threadID, messageID
+      );
+    }
+
+    // إيقاف القديم إن كان نشطاً
+    stopTimer(tid);
+
+    const entry = {
+      active:    true,
+      mode:      'fixed',
+      interval:  minutes,
+      message,
+      threadID:  tid,
+      startedAt: Date.now()
+    };
+    setEntry(tid, entry);
+    scheduleNext(api, tid);
+
+    return api.sendMessage(
+      `✅ تم تفعيل التوسيع الثابت!\n\n` +
+      `⏱ الوقت: كل ${minutes} دقيقة\n` +
+      `💬 الرسالة: "${message}"\n\n` +
+      `للإيقاف: توسيع كسر`,
+      threadID, messageID
+    );
+  }
+
+  // ══════════════════════════════════════════════
+  //  r / ر — وقت عشوائي
+  // ══════════════════════════════════════════════
+  if (sub === 'r' || sub === 'ر') {
+    const range   = (args[1] || '').trim();
+    const message = args.slice(2).join(' ').trim();
+    const match   = range.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
+
+    if (!match) {
+      return api.sendMessage(
+        '❌ صيغة النطاق غير صحيحة\n\n' +
+        'مثال: توسيع r 10-20 أهلاً وسهلاً!',
+        threadID, messageID
+      );
+    }
+
+    const minVal = parseFloat(match[1]);
+    const maxVal = parseFloat(match[2]);
+
+    if (minVal < MIN_INTERVAL) {
+      return api.sendMessage(
+        `❌ الحد الأدنى لا يقل عن ${MIN_INTERVAL} دقيقة`,
+        threadID, messageID
+      );
+    }
+    if (maxVal > MAX_INTERVAL) {
+      return api.sendMessage(
+        `❌ الحد الأقصى لا يتجاوز ${MAX_INTERVAL} دقيقة`,
+        threadID, messageID
+      );
+    }
+    if (minVal >= maxVal) {
+      return api.sendMessage(
+        '❌ الحد الأدنى يجب أن يكون أصغر من الحد الأقصى\n\nمثال: توسيع r 10-20 رسالة',
+        threadID, messageID
+      );
+    }
+    if (!message) {
+      return api.sendMessage(
+        '❌ يجب كتابة الرسالة بعد النطاق\n\nمثال: توسيع r 10-20 أهلاً!',
+        threadID, messageID
+      );
+    }
+
+    // إيقاف القديم إن كان نشطاً
+    stopTimer(tid);
+
+    const entry = {
+      active:    true,
+      mode:      'random',
+      min:       minVal,
+      max:       maxVal,
+      message,
+      threadID:  tid,
+      startedAt: Date.now()
+    };
+    setEntry(tid, entry);
+    scheduleNext(api, tid);
+
+    return api.sendMessage(
+      `✅ تم تفعيل التوسيع العشوائي!\n\n` +
+      `⏱ الوقت: عشوائي بين ${minVal}–${maxVal} دقيقة\n` +
+      `💬 الرسالة: "${message}"\n\n` +
+      `للإيقاف: توسيع كسر`,
+      threadID, messageID
+    );
+  }
+
+  // ══════════════════════════════════════════════
+  //  تعليمات الاستخدام
+  // ══════════════════════════════════════════════
+  const currentEntry = getEntry(tid);
+  const statusLine   = currentEntry?.active
+    ? `\n📌 الحالة الحالية في هذا القروب: نشط (${formatMode(currentEntry)})\n`
+    : '';
 
   return api.sendMessage(
-    `✅ تم تفعيل التوسيع!\n\n` +
-    `📢 الرسالة: "${newCfg.msg || ""}"\n` +
-    `⏱️ الانتظار قبل الرد: ${newCfg.timeout || DEFAULT_TIMEOUT} ثانية`,
+    `📖 طريقة استخدام التوسيع:\n${statusLine}\n` +
+    `🔹 وقت ثابت:\n` +
+    `   توسيع وقت <دقائق> <رسالة>\n` +
+    `   مثال: توسيع وقت 30 مرحباً بالجميع!\n\n` +
+    `🔹 وقت عشوائي:\n` +
+    `   توسيع r <min-max> <رسالة>\n` +
+    `   مثال: توسيع r 10-20 أهلاً وسهلاً!\n\n` +
+    `🔹 توسيع كسر — إيقاف الإرسال\n` +
+    `🔹 توسيع حالة — عرض القروبات النشطة`,
     threadID, messageID
   );
-};
-
-module.exports.handleEvent = async function({ api, event }) {
-  try {
-    const { threadID, senderID, type } = event;
-    if (type !== "message" && type !== "message_reply") return;
-
-    let botID;
-    try { botID = String(api.getCurrentUserID()); } catch(e) { return; }
-    if (String(senderID) === botID) return;
-
-    const cfg = getConfig(threadID);
-    if (!cfg?.active) return;
-
-    const rt = ensureRuntime(threadID);
-    rt.queue.push({ senderID: String(senderID), ts: Date.now() });
-
-    // ابدأ المعالج فقط إذا لم يكن يعمل (سيُرسل بعد انتهاء الانتظار)
-    if (!rt.processing) processQueue(api, threadID);
-  } catch(e) {}
 };
