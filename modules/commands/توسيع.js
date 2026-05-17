@@ -2,8 +2,8 @@ const fs   = require('fs');
 const path = require('path');
 
 const DATA_FILE    = path.join(process.cwd(), 'modules/commands/data/tawsi3.json');
-const MIN_INTERVAL = 1;    // دقيقة على الأقل
-const MAX_INTERVAL = 720;  // 12 ساعة كحد أقصى
+const MIN_INTERVAL = 1;      // ثانية على الأقل
+const MAX_INTERVAL = 43200;  // 12 ساعة كحد أقصى (بالثواني)
 
 // ════════════════════════════════════════════════════════════════
 //  قراءة وحفظ البيانات
@@ -46,17 +46,31 @@ function patchEntry(threadID, patch) {
 
 function getDelayMs(entry) {
   if (entry.mode === 'random') {
-    const lo = entry.min * 60000;
-    const hi = entry.max * 60000;
+    const lo = entry.min * 1000;
+    const hi = entry.max * 1000;
     return Math.floor(Math.random() * (hi - lo + 1)) + lo;
   }
-  return entry.interval * 60000;
+  return entry.interval * 1000;
+}
+
+function formatSeconds(s) {
+  if (s >= 3600) {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return m > 0 ? `${h} ساعة و${m} دقيقة` : `${h} ساعة`;
+  }
+  if (s >= 60) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return sec > 0 ? `${m} دقيقة و${sec} ثانية` : `${m} دقيقة`;
+  }
+  return `${s} ثانية`;
 }
 
 function formatMode(entry) {
   if (!entry || !entry.mode) return 'غير محدد';
-  if (entry.mode === 'random') return `عشوائي (${entry.min}–${entry.max} دقيقة)`;
-  return `ثابت كل ${entry.interval} دقيقة`;
+  if (entry.mode === 'random') return `عشوائي (${entry.min}–${entry.max} ثانية)`;
+  return `ثابت كل ${formatSeconds(entry.interval)}`;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -76,19 +90,18 @@ function stopTimer(threadID) {
 
 function scheduleNext(api, threadID) {
   const tid = String(threadID);
-  stopTimer(tid);  // دائماً أوقف القديم أولاً
+  stopTimer(tid);
 
   const entry = getEntry(tid);
   if (!entry || !entry.active) return;
 
   const delay    = getDelayMs(entry);
-  const delayMin = (delay / 60000).toFixed(2);
-  console.log(`[توسيع] ⏰ القروب ${tid} → إرسال بعد ${delayMin} دقيقة`);
+  const delaySec = (delay / 1000).toFixed(1);
+  console.log(`[توسيع] ⏰ القروب ${tid} → إرسال بعد ${delaySec} ثانية`);
 
   global._tawsi3[tid] = setTimeout(async () => {
     delete global._tawsi3[tid];
 
-    // ── إرسال ──────────────────────────────────────────────────
     try {
       const cur = getEntry(tid);
       if (!cur || !cur.active) {
@@ -103,10 +116,8 @@ function scheduleNext(api, threadID) {
       console.log(`[توسيع] ✅ تم الإرسال: ${tid}`);
     } catch(err) {
       console.error(`[توسيع] ❌ فشل الإرسال ${tid}:`, err?.error || err?.message || err);
-      // لا نوقف — نكمل الجدولة
     }
 
-    // ── جدوِل التالي دائماً ────────────────────────────────────
     try {
       const next = getEntry(tid);
       if (next?.active) scheduleNext(api, tid);
@@ -144,18 +155,18 @@ function restoreAll(api) {
 
 module.exports.config = {
   name: "توسيع",
-  version: "9.0.0",
+  version: "10.0.0",
   hasPermssion: 3,
   credits: "FANG",
   description: "إرسال رسائل تلقائية مستمرة بوقت ثابت أو عشوائي",
   commandCategory: "أدوات",
   usages: [
-    "توسيع          ← تفعيل الإرسال",
-    "توسيع وقت <دقائق>          ← ضبط وقت ثابت",
-    "توسيع r <min-max>          ← ضبط وقت عشوائي",
-    "توسيع تحديث رسالة <نص>    ← تحديث الرسالة",
-    "توسيع كسر                 ← إيقاف الإرسال",
-    "توسيع حالة                ← عرض الإعدادات"
+    "توسيع               ← تفعيل الإرسال",
+    "توسيع وقت ثواني    ← ضبط وقت ثابت",
+    "توسيع r min-max    ← ضبط وقت عشوائي",
+    "تحديث رسالة نص    ← تحديث الرسالة",
+    "توسيع كسر          ← إيقاف الإرسال",
+    "توسيع حالة         ← عرض الإعدادات"
   ].join('\n'),
   cooldowns: 3
 };
@@ -176,20 +187,19 @@ module.exports.run = async function({ api, event, args }) {
   if (!sub) {
     const entry = getEntry(tid);
 
-    // التحقق من الإعداد
     if (!entry || !entry.mode) {
       return api.sendMessage(
         '⚠️ لم تُحدد مدة الإرسال بعد\n\n' +
         'اضبط الوقت أولاً:\n' +
-        '• توسيع وقت 30       ← كل 30 دقيقة\n' +
-        '• توسيع r 10-20      ← عشوائي بين 10 و20 دقيقة',
+        '• توسيع وقت 30       ← كل 30 ثانية\n' +
+        '• توسيع r 10-20      ← عشوائي بين 10 و20 ثانية',
         threadID, messageID
       );
     }
     if (!entry.message || !entry.message.trim()) {
       return api.sendMessage(
         '⚠️ لم تُحدد رسالة التوسيع بعد\n\n' +
-        'مثال: توسيع تحديث رسالة مرحباً بالجميع!',
+        'مثال: تحديث رسالة مرحباً بالجميع!',
         threadID, messageID
       );
     }
@@ -203,7 +213,6 @@ module.exports.run = async function({ api, event, args }) {
       );
     }
 
-    // تفعيل
     patchEntry(tid, { active: true });
     scheduleNext(api, tid);
 
@@ -217,43 +226,41 @@ module.exports.run = async function({ api, event, args }) {
   }
 
   // ══════════════════════════════════════════════════════════════
-  //  وقت — ضبط وقت ثابت فقط (بدون تفعيل)
+  //  وقت — ضبط وقت ثابت (بالثواني)
   // ══════════════════════════════════════════════════════════════
   if (sub === 'وقت') {
-    const minutes = parseFloat(args[1]);
+    const seconds = parseFloat(args[1]);
 
-    if (isNaN(minutes) || minutes < MIN_INTERVAL || minutes > MAX_INTERVAL) {
+    if (isNaN(seconds) || seconds < MIN_INTERVAL || seconds > MAX_INTERVAL) {
       return api.sendMessage(
-        `❌ اكتب وقتاً بين ${MIN_INTERVAL} و${MAX_INTERVAL} دقيقة\n\nمثال: توسيع وقت 30`,
+        `❌ اكتب وقتاً بين ${MIN_INTERVAL} و${MAX_INTERVAL} ثانية\n\nمثال: توسيع وقت 30`,
         threadID, messageID
       );
     }
 
     const wasActive = getEntry(tid)?.active;
-
-    // إذا كان نشطاً → أوقف وأعد الجدولة بالوقت الجديد
     if (wasActive) stopTimer(tid);
 
-    patchEntry(tid, { mode: 'fixed', interval: minutes });
+    patchEntry(tid, { mode: 'fixed', interval: seconds });
 
     if (wasActive) {
       scheduleNext(api, tid);
       return api.sendMessage(
-        `✅ تم تحديث الوقت إلى ${minutes} دقيقة (ثابت)\n` +
+        `✅ تم تحديث الوقت إلى ${formatSeconds(seconds)} (ثابت)\n` +
         `ℹ️ المؤقت أُعيد تشغيله تلقائياً`,
         threadID, messageID
       );
     }
 
     return api.sendMessage(
-      `✅ تم ضبط الوقت: كل ${minutes} دقيقة\n\n` +
+      `✅ تم ضبط الوقت: كل ${formatSeconds(seconds)}\n\n` +
       `اكتب "توسيع" للتفعيل`,
       threadID, messageID
     );
   }
 
   // ══════════════════════════════════════════════════════════════
-  //  r / ر — ضبط وقت عشوائي فقط (بدون تفعيل)
+  //  r / ر — ضبط وقت عشوائي (بالثواني)
   // ══════════════════════════════════════════════════════════════
   if (sub === 'r' || sub === 'ر') {
     const range = (args[1] || '').trim();
@@ -272,8 +279,8 @@ module.exports.run = async function({ api, event, args }) {
     if (minVal < MIN_INTERVAL || maxVal > MAX_INTERVAL || minVal >= maxVal) {
       return api.sendMessage(
         `❌ النطاق غير صحيح:\n` +
-        `• الحد الأدنى: ${MIN_INTERVAL} دقيقة على الأقل\n` +
-        `• الحد الأقصى: ${MAX_INTERVAL} دقيقة كحد أعلى\n` +
+        `• الحد الأدنى: ${MIN_INTERVAL} ثانية على الأقل\n` +
+        `• الحد الأقصى: ${MAX_INTERVAL} ثانية كحد أعلى\n` +
         `• الأدنى يجب أن يكون أصغر من الأقصى`,
         threadID, messageID
       );
@@ -287,39 +294,15 @@ module.exports.run = async function({ api, event, args }) {
     if (wasActive) {
       scheduleNext(api, tid);
       return api.sendMessage(
-        `✅ تم تحديث الوقت إلى عشوائي (${minVal}–${maxVal} دقيقة)\n` +
+        `✅ تم تحديث الوقت إلى عشوائي (${minVal}–${maxVal} ثانية)\n` +
         `ℹ️ المؤقت أُعيد تشغيله تلقائياً`,
         threadID, messageID
       );
     }
 
     return api.sendMessage(
-      `✅ تم ضبط الوقت: عشوائي بين ${minVal}–${maxVal} دقيقة\n\n` +
+      `✅ تم ضبط الوقت: عشوائي بين ${minVal}–${maxVal} ثانية\n\n` +
       `اكتب "توسيع" للتفعيل`,
-      threadID, messageID
-    );
-  }
-
-  // ══════════════════════════════════════════════════════════════
-  //  تحديث رسالة — تغيير نص الرسالة فقط
-  // ══════════════════════════════════════════════════════════════
-  if (sub === 'تحديث' && (args[1] || '').trim() === 'رسالة') {
-    const message = args.slice(2).join(' ').trim();
-
-    if (!message) {
-      return api.sendMessage(
-        '❌ اكتب نص الرسالة بعد الأمر\n\nمثال: توسيع تحديث رسالة مرحباً بالجميع!',
-        threadID, messageID
-      );
-    }
-
-    patchEntry(tid, { message });
-
-    const entry = getEntry(tid);
-    const status = entry?.active ? '✅ تم التحديث وسيُطبَّق في الإرسال القادم' : '✅ تم حفظ الرسالة';
-
-    return api.sendMessage(
-      `${status}\n\n💬 الرسالة الجديدة:\n"${message}"`,
       threadID, messageID
     );
   }
@@ -378,12 +361,12 @@ module.exports.run = async function({ api, event, args }) {
 
   return api.sendMessage(
     `📖 أوامر التوسيع:\n${statusLine}\n` +
-    `1️⃣  توسيع وقت <دقائق>\n` +
+    `1️⃣  توسيع وقت ثواني\n` +
     `    مثال: توسيع وقت 30\n\n` +
-    `2️⃣  توسيع r <min-max>\n` +
+    `2️⃣  توسيع r min-max\n` +
     `    مثال: توسيع r 10-20\n\n` +
-    `3️⃣  توسيع تحديث رسالة <نص>\n` +
-    `    مثال: توسيع تحديث رسالة مرحباً!\n\n` +
+    `3️⃣  تحديث رسالة نص\n` +
+    `    مثال: تحديث رسالة مرحباً!\n\n` +
     `4️⃣  توسيع ← تفعيل الإرسال\n\n` +
     `5️⃣  توسيع كسر ← إيقاف الإرسال\n` +
     `6️⃣  توسيع حالة ← عرض القروبات النشطة`,
