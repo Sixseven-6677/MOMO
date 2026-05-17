@@ -7,7 +7,6 @@
 const logger = require('./log');
 
 // ── وقت بدء التشغيل — يُحسب مرة واحدة عند أول require ──────────────────
-// Node.js يُخزّن الـ module في cache → هذا الرقم لا يتغير طوال عمر العملية
 if (!global.__BOT_START_TIME__) {
     global.__BOT_START_TIME__ = Date.now();
     logger('uptime initialized at: ' + new Date(global.__BOT_START_TIME__).toISOString(), '[ UPTIME ]');
@@ -23,10 +22,9 @@ function getUptimeMs() {
 }
 
 /**
- * يُنسّق مدة التشغيل بشكل احترافي
- * يتجاهل القيم الصفرية — يعرض الثواني دائماً إذا كان أقل من دقيقة
- * @param {number} ms - المدة بالميلي ثانية (اختياري، افتراضي: من وقت البدء)
- * @returns {string} مثال: "2 Days 14 Hours 5 Minutes"
+ * يُنسّق مدة التشغيل — يعرض كل وحدة غير صفرية (أيام + ساعات + دقائق + ثواني)
+ * @param {number} ms - المدة بالميلي ثانية (اختياري)
+ * @returns {string} مثال: "2 Days 3 Hours 14 Minutes 7 Seconds"
  */
 function formatUptime(ms) {
     if (ms === undefined) ms = getUptimeMs();
@@ -38,21 +36,16 @@ function formatUptime(ms) {
     const seconds = totalSec % 60;
 
     const parts = [];
-    if (days    > 0) parts.push(`${days} Day${days > 1 ? 's' : ''}`);
-    if (hours   > 0) parts.push(`${hours} Hour${hours > 1 ? 's' : ''}`);
-    if (minutes > 0) parts.push(`${minutes} Minute${minutes > 1 ? 's' : ''}`);
-
-    // نعرض الثواني فقط إذا لم يكن هناك دقائق أو أكثر
-    if (parts.length === 0) {
-        parts.push(`${seconds} Second${seconds !== 1 ? 's' : ''}`);
-    }
+    if (days    > 0) parts.push(`${days} Day${days !== 1 ? 's' : ''}`);
+    if (hours   > 0) parts.push(`${hours} Hour${hours !== 1 ? 's' : ''}`);
+    if (minutes > 0) parts.push(`${minutes} Minute${minutes !== 1 ? 's' : ''}`);
+    if (seconds > 0 || parts.length === 0) parts.push(`${seconds} Second${seconds !== 1 ? 's' : ''}`);
 
     return parts.join(' ');
 }
 
 /**
  * يسجّل في logs أن reconnect حدث بدون إعادة تصفير العداد
- * @param {string} reason - سبب الـ reconnect
  */
 function logReconnect(reason) {
     logger(`reconnect detected without reset — uptime continues: ${formatUptime()} (reason: ${reason})`, '[ UPTIME ]');
