@@ -1,6 +1,6 @@
 module.exports.config = {
   name: "uptime",
-  version: "10.0.0",
+  version: "11.0.0",
   hasPermssion: 0,
   credits: "FANG",
   description: "داشبورد معلومات البوت",
@@ -9,24 +9,22 @@ module.exports.config = {
   cooldowns: 10
 };
 
-module.exports.run = async function({ api, event, Users, Threads }) {
-  const { threadID, messageID, senderID } = event;
-  const os     = require('os');
+module.exports.run = async function({ api, event, Threads }) {
+  const { threadID, messageID } = event;
+  const os  = require('os');
   const moment = require('moment-timezone');
   const path   = require('path');
   const fs     = require('fs');
   const fsp    = require('fs').promises;
 
-  // ── uptime الحقيقي من uptimeManager ──────────────────────────────────────
-  // لا يتأثر بـ reconnect أو relogin — فقط restart حقيقي للعملية يُصفّره
+  // ── uptime الحقيقي — من وقت بدء main.js لا من وقت استدعاء الأمر ──────
   const { getUptimeMs, formatUptime } = require('../../utils/uptimeManager');
-  const uptimeMs  = getUptimeMs();
-  const uptimeStr = formatUptime(uptimeMs);
-  // ─────────────────────────────────────────────────────────────────────────
+  const uptimeStr = formatUptime(getUptimeMs());
+  // ──────────────────────────────────────────────────────────────────────
 
   const pingStart = Date.now();
 
-  // ── معلومات CPU ──
+  // ── CPU ──
   const cpus     = os.cpus();
   const cpu      = (cpus[0]?.model || 'Unknown').replace(/\(.*?\)/g, '').trim().slice(0, 30);
   const platform = os.platform();
@@ -66,7 +64,7 @@ module.exports.run = async function({ api, event, Users, Threads }) {
     serverIP    = (iface || []).find(a => a.family === 'IPv4' && !a.internal)?.address || 'N/A';
   } catch(e) {}
 
-  // ── عدد الحزم من package.json ──
+  // ── عدد الحزم ──
   let depCount = 0, devDepCount = 0;
   try {
     const pkg   = JSON.parse(await fsp.readFile('package.json', 'utf8'));
@@ -83,14 +81,6 @@ module.exports.run = async function({ api, event, Users, Threads }) {
   try {
     const td = (await Threads.getData(String(threadID))).data;
     if (td?.PREFIX != null) prefix = td.PREFIX;
-  } catch(e) {}
-
-  // ── اسم المرسل واسم المجموعة ──
-  let requesterName = 'Unknown', threadName = 'محادثة خاصة';
-  try { requesterName = await Users.getNameUser(senderID); } catch(e) {}
-  try {
-    const info = await api.getThreadInfo(threadID);
-    threadName = info.threadName || 'محادثة خاصة';
   } catch(e) {}
 
   const ping       = Date.now() - pingStart;
@@ -114,9 +104,9 @@ module.exports.run = async function({ api, event, Users, Threads }) {
     const { makeCard } = require('../../utils/makeCard');
     const buf = await makeCard({
       botName,
-      version:       global.config?.version || '1.0.0',
-      uptime:        uptimeStr,
-      ping:          ping + 'ms',
+      version:  global.config?.version || '1.0.0',
+      uptime:   uptimeStr,
+      ping:     ping + 'ms',
       pingStatus,
       cmds, groups, users, prefix,
       heapUsed, heapTotal, heapPct,
@@ -125,7 +115,6 @@ module.exports.run = async function({ api, event, Users, Threads }) {
       diskFree, diskFreePct,
       depCount, devDepCount,
       serverIP,
-      requesterName, threadName,
       times
     });
 
@@ -152,14 +141,12 @@ module.exports.run = async function({ api, event, Users, Threads }) {
       '⚡ Ping: ' + ping + 'ms (' + pingStatus + ')',
       '💬 أوامر: ' + cmds + '  📦 مجموعات: ' + groups + '  👥 مستخدمين: ' + users,
       '💾 Heap: ' + heapUsed + '/' + heapTotal + ' MB',
-      '🖥 RAM: ' + usedMemGB + '/' + totalMemGB + ' GB (متاح ' + freeMemGB + ' GB)',
+      '🖥 RAM: ' + usedMemGB + '/' + totalMemGB + ' GB  (متاح ' + freeMemGB + ' GB)',
       '💿 Disk: ' + diskFree,
       '🌐 IP: ' + serverIP,
-      '📦 Packages: ' + depCount + ' | Dev: ' + devDepCount,
+      '📦 Packages: ' + depCount + '  Dev: ' + devDepCount,
       '',
       '🕐 أوقات عربية:\n' + arabicTimes,
-      '',
-      '👤 ' + requesterName + '  —  ' + threadName,
       '╚' + '═'.repeat(22) + '╝',
     ].join('\n');
     return api.sendMessage(text, threadID, messageID);
